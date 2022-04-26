@@ -78,6 +78,36 @@ class binarySignal:
 		text = ';'.join([str(value) for value in self.sequence])
 		return text
 
+class Trace:
+	'''
+	defines a sequences of letters, which could be a subset of propositions or symbol from an alphabet
+	'''
+	def __init__(self, vector, is_word, lasso_start=None):
+			
+		self.vector = vector
+		self.length = len(vector)
+		self.lasso_start = lasso_start
+		self.is_word = is_word
+		if self.lasso_start == None:
+			self.is_finite = True
+		
+		if is_word==False:
+			self.vector_str = str(self)
+
+		if lasso_start != None:
+			self.is_finite = False
+			self.lasso_start = int(lasso_start)
+			if self.lasso_start >= self.length:
+				raise Exception(
+					"lasso start = %s is greater than any value in trace (trace length = %s) -- must be smaller" % (
+					self.lasso_start, self.length))
+
+			self.lasso_length = self.length - self.lasso_start
+			self.prefix_length = self.length - self.lasso_length
+
+			self.lasso = self.vector[self.lasso_start:self.length]
+			self.prefix = self.vector[:self.lasso_start] 
+
 
 class Sample:
 

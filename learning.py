@@ -3,17 +3,18 @@ import Sample, samplePoint, Signal
 
 # read sample, predicates
 sample = Sample()
-sample.readSample()
+sample.readSample('cart-pole.signal')
 
 
 start_time = sample.positive[0].sequence[0].time # all signals start at same time
-end_time = sample.positive[0].sequence[-1].time # all signals end at same time
+#end_time = sample.positive[0].sequence[-1].time # all signals end at same time
 
 binary_signals = {}
-interesting_time_points = {start_time,end_time}
+interesting_time_points = {start_time}
 
-for signal in sample.positive:
+for signal in sample.positive+sample.negative:
 
+	end_time = signal.sequence[-1].time
 	for i in range(len(sample.vars)):
 		var = sample.vars[i]
 		
@@ -44,6 +45,7 @@ for signal in sample.positive:
 					curr_value = 1 - curr_binary_signal.sequence[-1].vector[0]
 					curr_binary_signal.addPoint(samplePoint(time=t0, vector=[curr_value])) 
 
+			interesting_time_points.add(end_value)
 			end_value = 1 if signal.sequence[-1].vector[i] - c > 0 else 0
 			curr_binary_signal.addPoint(samplePoint(time=end_time, vector=[end_value]))
 
@@ -51,17 +53,62 @@ for signal in sample.positive:
 			binary_signals[(signal,var,c)] = curr_binary_signal
 
 
+interesting_time_points = sorted(list(interesting_time_points))
+wordsample = WordSample(positive=[], negative=[])
+
+label_decider = 0
+num_pos = len(sample.positive)
 
 
-for signal in sample.positive:
+for signal in sample.positive+sample.negative:
 
-	binary
-	for i in range(len(sample.vars)):
-		var = sample.vars[i]
+	label_decider += 1
+
+	head = {}
+	end_time = signal.sequence[-1].time
+
+	start_value = []
+	for var in sample.vars:
 		for c in sample.predicates[var]:
-			
+			head[(var,c)] = 0
+			start_value.append(binary_signals[(signal,var,c)].sequence[0].vector[0])
 
-			binary_signals[(signal,var,c)]
+	timed_word = binarySignal([samplePoint(time=start_time, vector=start_value)])
+
+
+	for t in interesting_time_points:
+		
+		if t > end_time:
+			break
+
+		curr_value = []
+		for var in sample.vars:
+			for c in sample.predicates[var]:
+
+				next_head_time = binary_signals[(var,c)].sequence[head[(var,c)]+1].time
+
+				if t == next_head_time:
+
+					head[var,c] += 1
+					curr_value.append(binary_signals[(var,c)].sequence[head[(var,c)]].vector[0])
+
+				else:
+
+					curr_value.append(binary_signals[(var,c)].sequence[head[(var,c)]].vector[0])
+
+		timed_word.addPoint(samplePoint(time=t, vector=curr_value))
+
+	trace_vector = []
+	for sp in timed_word:
+		trace_vector.append(tuple(sp.vector))
+
+	if label_decider <= num_pos:
+		wordsample.positive.append(Trace(vector=trace_vector))
+	else:
+		wordsample.negative.append(Trace(vector=trace_vector))
+
+wordsample.writeToFile("please.trace")
+			
 
 
 
