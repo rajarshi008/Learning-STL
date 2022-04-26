@@ -2,7 +2,7 @@ def convertTextToSignal(text):
 
 	sequence = []
 	split1 = text.split(';')
-	for value in range(split1):
+	for value in split1:
 		time, vector = value.split(':')
 		vector = [float(i) for i in vector.split(',')]
 		sp = samplePoint(float(time), vector)
@@ -82,17 +82,15 @@ class Trace:
 	'''
 	defines a sequences of letters, which could be a subset of propositions or symbol from an alphabet
 	'''
-	def __init__(self, vector, is_word, lasso_start=None):
+	def __init__(self, vector,lasso_start=None):
 			
 		self.vector = vector
 		self.length = len(vector)
 		self.lasso_start = lasso_start
-		self.is_word = is_word
 		if self.lasso_start == None:
 			self.is_finite = True
-		
-		if is_word==False:
-			self.vector_str = str(self)
+	
+		self.vector_str = str(self)
 
 		if lasso_start != None:
 			self.is_finite = False
@@ -106,7 +104,11 @@ class Trace:
 			self.prefix_length = self.length - self.lasso_length
 
 			self.lasso = self.vector[self.lasso_start:self.length]
-			self.prefix = self.vector[:self.lasso_start] 
+			self.prefix = self.vector[:self.lasso_start]
+
+	def __str__(self):
+		vector_str = [list(map(lambda x: str(int(x)), letter)) for letter in self.vector]
+		return str(';'.join([','.join(letter) for letter in vector_str]))
 
 
 class Sample:
@@ -123,7 +125,7 @@ class Sample:
 
 		self.predicates = {}
 
-	def readSample(signalfile):
+	def readSample(self, signalfile):
 		
 		with open(signalfile, 'r') as file:
 			mode = 0
@@ -168,7 +170,7 @@ class Sample:
 						raise Exception("Not enough predicates")
 
 					for i in range(len(line)):
-						self.predicates[self.vars[0]] = [float(j) for j in line[i].split(',')]
+						self.predicates[self.vars[i]] = [float(j) for j in line[i].split(',') if j != '']
 		
 		
 	def writeSample(self, signalfile):
@@ -200,35 +202,27 @@ class Sample:
 
 
 
-
-
 class WordSample:
 	'''
 	contains the sample of postive and negative examples
 	'''
-	def __init__(self, positive=[], negative=[], alphabet=[], is_words=False, operators=['G', 'F', '!', 'U', '&','|', 'X']):
+	def __init__(self, positive=[], negative=[], alphabet=[], operators=['G', 'F', '!', 'U', '&','|', 'X']):
 
 		self.positive = positive
 		self.negative = negative
 		self.alphabet = alphabet
-		self.is_words = is_words
 		self.num_positives = len(self.positive)
 		self.num_negatives = len(self.negative)
 		self.operators=operators
 
 	
-	def extract_alphabet(self, is_word):
+	def extract_alphabet(self):
 		'''
 		extracts alphabet from the words/traces provided in the data
 		'''
 		alphabet = set()
 		
-		if self.is_words:
-			for w in self.positive+self.negative:
-				alphabet = alphabet.union(set(w.vector))
-			self.alphabet = list(alphabet)
-		else:
-			self.alphabet = [chr(ord('p')+i) for i in range(len(self.positive[0].vector[0]))] 
+		self.alphabet = [chr(ord('p')+i) for i in range(len(self.positive[0].vector[0]))] 
 
 	def word2trace(self, word):
 		one_hot_alphabet={}
@@ -249,7 +243,7 @@ class WordSample:
 		'''
 		reads .trace/.word files to extract sample from it
 		'''
-		self.is_words = ('.words' in filename)
+		
 		with open(filename, 'r') as file:
 			mode = 0
 			count=0
@@ -264,26 +258,16 @@ class WordSample:
 					continue
 
 				if mode==0:	
-					# can read from both word file type and trace file type
-					if self.is_words:
-						word_vector, lasso_start = lineToWord(line)
-						word = Trace(vector=word_vector, lasso_start=lasso_start, is_word=True)	 	
-						self.positive.append(word)
-					else:
-						trace_vector, lasso_start = lineToTrace(line)
-						trace = Trace(vector=trace_vector, lasso_start=lasso_start, is_word=False)	 	
-						self.positive.append(trace)
+					
+					trace_vector, lasso_start = lineToTrace(line)
+					trace = Trace(vector=trace_vector, lasso_start=lasso_start, is_word=False)	 	
+					self.positive.append(trace)
 
 				if mode==1:
 					
-					if self.is_words:
-						word_vector, lasso_start = lineToWord(line)
-						word = Trace(vector=word_vector, lasso_start=lasso_start, is_word=True)	 	
-						self.negative.append(word)
-					else:
-						trace_vector, lasso_start = lineToTrace(line)
-						trace = Trace(vector=trace_vector, lasso_start=lasso_start, is_word=False)	 	
-						self.negative.append(trace)
+					trace_vector, lasso_start = lineToTrace(line)
+					trace = Trace(vector=trace_vector, lasso_start=lasso_start, is_word=False)	 	
+					self.negative.append(trace)
 
 				if mode==2:
 					self.operators = list(line.strip().split(','))
@@ -298,12 +282,7 @@ class WordSample:
 		for i in range(len(self.alphabet)):
 			self.letter2pos[self.alphabet[i]]=i
 		
-		if self.is_words:
-			for word in self.positive+ self.negative:
-				word.vector= self.word2trace(word.vector)
-				word.vector_str= str(word.vector)
-				word.is_word = False
-
+		
 		self.writeToFile('small-example')
 
 	def writeToFile(self, filename):

@@ -31,7 +31,7 @@ def theta_omega_policy(obs):
 # env.close()
 
 
-def generateSignals(signalfile = 'cart-pole.signal', pos_number=20, neg_number=20, T=10):
+def generateSignals(signalfile = 'cart-pole.signal', pos_number=5, neg_number=5, T=10):
 	
 	env = gym.make('CartPole-v1')
 	sample = Sample()
@@ -49,7 +49,7 @@ def generateSignals(signalfile = 'cart-pole.signal', pos_number=20, neg_number=2
 			env.render()
 			action = theta_omega_policy(observation)
 			observation, reward, fail, info = env.step(action)
-			sp = samplePoint(time=t, vector=list(observation))
+			sp = samplePoint(time=t, vector=list(observation)+[action])
 			signal.addPoint(sp)
 			
 			if fail:
@@ -71,7 +71,7 @@ def generateSignals(signalfile = 'cart-pole.signal', pos_number=20, neg_number=2
 			env.render()
 			action = env.action_space.sample()
 			observation, reward, fail, info = env.step(action)
-			sp = samplePoint(time=t, vector=list(observation))
+			sp = samplePoint(time=t, vector=list(observation)+[action])
 			signal.addPoint(sp)
 
 			if fail:
@@ -82,9 +82,9 @@ def generateSignals(signalfile = 'cart-pole.signal', pos_number=20, neg_number=2
 				break
 
 
-	sample.vars = ['x', 'v', 't', 'o']
+	sample.vars = ['x', 'v', 't', 'o', 'a']
 	### change the predicates here ###
-	sample.predicates = {'x': [0.2,0.3], 'v':[], 't':[], 'o':[0.5,0.7]}
+	sample.predicates = {'x': [], 'v':[], 't':[0.01,0.03], 'o':[0], 'a':[0.5]}
 	sample.writeSample(signalfile)
 
 
