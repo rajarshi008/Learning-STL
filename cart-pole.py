@@ -84,7 +84,7 @@ def generateSignals(signalfile = 'cart-pole.signal', pos_number=5, neg_number=5,
 
 	sample.vars = ['x', 'v', 't', 'o', 'a']
 	### change the predicates here ###
-	sample.predicates = {'x': [], 'v':[], 't':[0.01,0.03], 'o':[0], 'a':[0.5]}
+	sample.predicates = {'x': [], 'v':[], 't':[0.03], 'o':[0], 'a':[0.5]}
 	sample.writeSample(signalfile)
 
 
