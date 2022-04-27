@@ -1,2 +1,5 @@
 gym
 pygame
+lark
+graphviz
+ltlf2dfa
