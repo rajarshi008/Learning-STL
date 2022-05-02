@@ -1,3 +1,4 @@
+ 
 def convertTextToSignal(text):
 
 	sequence = []
@@ -304,5 +305,3 @@ class WordSample:
 			if self.alphabet != []:
 				file.write('---\n')
 				file.write(','.join(self.alphabet))
-
-

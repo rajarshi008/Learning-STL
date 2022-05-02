@@ -1,18 +1,12 @@
-from signal import Sample, samplePoint, Signal, WordSample, Trace, binarySignal
+from signaltraces import Sample, samplePoint, Signal, WordSample, Trace, binarySignal
+from Scarlet.inferLTL import inferLTL
 
 
 
-
-def convertSignals2Traces(sample, wordsamplefile):
+def convertSignals2Traces(sample, wordsamplefile, operators):
 	'''
 	takes a sample of signals and produces a equivalent sample of traces in wordsamplefile
 	'''
-
-	# read sample, predicates
-	sample = Sample()
-	sample.readSample('cart-pole.signal')
-
-	print(sample.predicates)
 
 	start_time = sample.positive[0].sequence[0].time # all signals start at same time
 	#end_time = sample.positive[0].sequence[-1].time # all signals end at same time
@@ -123,16 +117,33 @@ def convertSignals2Traces(sample, wordsamplefile):
 
 	wordsample.positive = list(positive_set)
 	wordsample.negative = list(negative_set)
+	wordsample.operators = operators
 
 	wordsample.writeToFile(wordsamplefile)
-			
+	
+
+def refineltl(ltlformula):
+
+	curr_label = ltlformula.label
+
+	if curr_label == 'X':
+		continue
+
+	if curr_label == '&' and curr_label == '|':
+		continue
+
+	if curr_label == '!':
+		continue
 
 
-def ltl2stl():
+
+def ltl2stl(ltlformula):
 	'''
 	write an inductive definition
 	'''
 	pass
+
+
 
 
 
@@ -142,11 +153,16 @@ def learnSTL(signalfile):
 	sample.readSample(signalfile)
 
 	wordsamplefile = signalfile.split('.')[0]+'.trace'
-	convertSignals2Traces(sample, wordsamplefile)
 
-	#ltllearning = ['Scarlet']
 
-	#if ltllearning == 'Scarlet':
+	convertSignals2Traces(sample, wordsamplefile, ['X','&', '|', '!'])
 
+	ltllearning = ['Scarlet']
+
+	if 'Scarlet' in ltllearning:
+
+		f = inferLTL(wordsamplefile,'output.csv')
+
+	
 
 learnSTL('cart-pole.signal')

@@ -1,6 +1,6 @@
 import gym
 import logging
-from signal import samplePoint, Signal, Sample
+from signaltraces import samplePoint, Signal, Sample
 
 
 logging.basicConfig(level=logging.DEBUG)
@@ -31,7 +31,7 @@ def theta_omega_policy(obs):
 # env.close()
 
 
-def generateSignals(signalfile = 'cart-pole.signal', pos_number=5, neg_number=5, T=10):
+def generateSignals(signalfile = 'cart-pole.signal', pos_number=2, neg_number=2, T=10):
 	
 	env = gym.make('CartPole-v1')
 	sample = Sample()
