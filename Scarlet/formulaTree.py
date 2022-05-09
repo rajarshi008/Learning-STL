@@ -81,7 +81,7 @@ class SimpleTree:
 		
 		elif self.left != None and self.right != None:
 			return self.label + '(' + self.left.__repr__() + ',' + self.right.__repr__() + ')'
-
+		
 '''
 A class for encoding syntax Trees and syntax DAGs of LTL formulas
 '''
@@ -140,6 +140,8 @@ class Formula(SimpleTree):
 			return lb + self.label +" "+ self.left.prettyPrint() + rb
 		if self.label in binary_operators:
 			return lb + self.left.prettyPrint() +" "+  self.label +" "+ self.right.prettyPrint() + rb
+		if isinstance(self.label, tuple):
+			return lb + self.label[0] + "^" + str(self.label[1]) +" "+ self.left.prettyPrint() + rb
 
 	
 	def getAllVariables(self):

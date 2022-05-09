@@ -1,6 +1,6 @@
 from signaltraces import Sample, samplePoint, Signal, WordSample, Trace, binarySignal
 from Scarlet.inferLTL import inferLTL
-
+from Scarlet.formulaTree import Formula
 
 
 def convertSignals2Traces(sample, wordsamplefile, operators):
@@ -125,15 +125,93 @@ def convertSignals2Traces(sample, wordsamplefile, operators):
 def refineltl(ltlformula):
 
 	curr_label = ltlformula.label
+	new_formula = Formula()
 
 	if curr_label == 'X':
-		continue
+		
+		#print('this')
+		f = refineltl(ltlformula.left)
 
-	if curr_label == '&' and curr_label == '|':
-		continue
+		if f.label == 'X':
 
-	if curr_label == '!':
-		continue
+			#print('that')
+			new_formula.label = ('X',2)
+			new_formula.left = f.left
+
+
+		elif isinstance(f.label, tuple):
+
+			new_formula.label = ('X',f.label[1]+1)
+			new_formula.left = f.left
+
+		elif f.label == '&' or f.label == '|':
+			
+			new_formula.label = f.label
+			inter_formula1 = Formula()
+			inter_formula1.label = 'X'
+			inter_formula1.left = f.left
+
+			inter_formula2 = Formula()
+			inter_formula2.label = 'X'
+			inter_formula2.left = f.right
+
+			new_formula.left = refineltl(inter_formula1)
+			new_formula.right = refineltl(inter_formula2)
+
+		else:
+
+			new_formula = ltlformula
+
+
+	elif isinstance(curr_label, tuple):
+
+		f = refineltl(ltlformula.left)
+
+		if f.label == 'X':
+
+			new_formula.label = ('X',curr_label[1]+1)
+			new_formula.left = f.left
+
+		elif isinstance(f.label, tuple):
+
+			new_formula.label = ('X',f.label[1]+curr_label[1])
+			new_formula.left = f.left
+
+		elif f.label == '&' or f.label == '|':
+			
+			new_formula.label = f.label
+			inter_formula1 = Formula()
+			inter_formula1.label = curr_label
+			inter_formula1.left = f.left
+
+			inter_formula2 = Formula()
+			inter_formula2.label = curr_label
+			inter_formula2.left = f.right
+
+			new_formula.left = refineltl(inter_formula1)
+			new_formula.right = refineltl(inter_formula2)
+
+		else:
+
+			new_formula = ltlformula
+
+
+	elif curr_label == '&' or curr_label == '|':
+		
+		f1 = refineltl(ltlformula.left)
+		f2 = refineltl(ltlformula.right)
+
+		new_formula.label = curr_label
+		new_formula.left = f1
+		new_formula.right = f2
+
+
+	else:
+
+		new_formula = ltlformula
+
+	return new_formula
+		
 
 
 
@@ -159,10 +237,14 @@ def learnSTL(signalfile):
 
 	ltllearning = ['Scarlet']
 
-	if 'Scarlet' in ltllearning:
+	#if 'Scarlet' in ltllearning:
 
-		f = inferLTL(wordsamplefile,'output.csv')
+	#	ltlformula = inferLTL(wordsamplefile,'output.csv')
 
+	#print(ltlformula)
+	#f = refineltl(ltlformula)
+	#print(f.right.right.label)
+	#print(f.prettyPrint())
 	
 
 learnSTL('cart-pole.signal')
