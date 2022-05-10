@@ -1,3 +1,10 @@
+import pdb
+import re 
+from lark import Lark, Transformer
+from graphviz import Source
+
+
+
 class SimpleTree:
 	def __init__(self, label = "dummy"):	
 		self.left = None
@@ -278,11 +285,9 @@ class STLFormula(SimpleTree):
 
 			if operator in unary_operators:
 
-				return lb + operator + '[' + self.label[1][0] + "," + self.label[1][1] + "]"+ self.left.prettyPrint() + rb
+				return lb + operator + '[' + str(round(self.label[1][0],2)) + "," + str(round(self.label[1][1],2)) + "]"+ self.left.prettyPrint() + rb
 			
 			else:
 
-				return lb + self.left.prettyPrint() +" "+  operator + '[' + self.label[1][0] + "," + self.label[1][1] + "]"+ " " + self.right.prettyPrint() + rb
-
-
-			
+				return lb + self.left.prettyPrint() +" "+  operator + '[' + str(round(self.label[1][0],2)) + "," + str(round(self.label[1][1],2)) + "]"+ " " + self.right.prettyPrint() + rb
+		

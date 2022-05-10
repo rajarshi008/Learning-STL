@@ -1,6 +1,9 @@
 from signaltraces import Sample, samplePoint, Signal, WordSample, Trace, binarySignal
 from Scarlet.inferLTL import inferLTL
 from Scarlet.formulaTree import Formula
+from formula import LTLFormula, STLFormula
+
+
 
 
 def convertSignals2Traces(sample, wordsamplefile, operators):
@@ -41,7 +44,7 @@ def convertSignals2Traces(sample, wordsamplefile, operators):
 					if var1 == var2:
 						continue
 
-					t0 = ((t2-t1)*c + var2*t1 - var1*t2)/(var2-var1)
+					t0 = round(((t2-t1)*c + var2*t1 - var1*t2)/(var2-var1),1)
 
 					if t0 < t1 or t0 > t2 or t0 == start_time or t0 == end_time:
 						continue
@@ -59,7 +62,23 @@ def convertSignals2Traces(sample, wordsamplefile, operators):
 
 
 	interesting_time_points = sorted(list(interesting_time_points))
+
+	abs_start_time = interesting_time_points[0] 
+	abs_end_time = interesting_time_points[-1]
+	interval_map = {}
+	for i in range(len(interesting_time_points)-1):
+		interval_map[i] = (interesting_time_points[i],interesting_time_points[i+1])
+
+	
 	wordsample = WordSample(positive=[], negative=[])
+
+	i=0
+	prop2pred = {}
+	for var in sample.vars:
+		for c in sample.predicates[var]:
+			prop2pred['p'+str(i)] = '('+str(var)+'>'+str(c)+')'
+			i+=1
+	wordsample.alphabet = list(prop2pred.keys())
 
 	label_decider = 0
 	num_pos = len(sample.positive)
@@ -78,6 +97,7 @@ def convertSignals2Traces(sample, wordsamplefile, operators):
 			for c in sample.predicates[var]:
 				head[(var,c)] = 0
 				start_value.append(binary_signals[(signal,var,c)].sequence[0].vector[0])
+
 
 		timed_word = binarySignal([samplePoint(time=start_time, vector=start_value)])
 
@@ -119,11 +139,17 @@ def convertSignals2Traces(sample, wordsamplefile, operators):
 	wordsample.negative = list(negative_set)
 	wordsample.operators = operators
 
+
+	print(sample.predicates)
+
 	wordsample.writeToFile(wordsamplefile)
 	
+	return wordsample.alphabet, interval_map, prop2pred, abs_start_time, abs_end_time
 
 def refineltl(ltlformula):
-
+	'''
+	Only suitable for formulas from Scarlet
+	'''
 	curr_label = ltlformula.label
 	new_formula = Formula()
 
@@ -131,6 +157,9 @@ def refineltl(ltlformula):
 		
 		#print('this')
 		f = refineltl(ltlformula.left)
+
+		if f.label == 'F':
+			new_formula = ltlformula
 
 		if f.label == 'X':
 
@@ -167,6 +196,9 @@ def refineltl(ltlformula):
 
 		f = refineltl(ltlformula.left)
 
+		if f.label == 'F':
+			new_formula = ltlformula
+
 		if f.label == 'X':
 
 			new_formula.label = ('X',curr_label[1]+1)
@@ -196,32 +228,120 @@ def refineltl(ltlformula):
 			new_formula = ltlformula
 
 
+	elif curr_label == 'F':
+
+		f = refineltl(ltlformula.left)
+
+		if f.label == 'F':
+			new_formula = f
+
+		elif f.label == 'X':
+
+			inter_formula = Formula()
+			inter_formula.label = 'F'
+			inter_formula.left = f.left
+
+			new_formula.label = 'X'
+			new_formula.left = refineltl(inter_formula)
+
+		elif isinstance(f.label, tuple):
+
+			inter_formula = Formula()
+			inter_formula.label = 'F'
+			inter_formula.left = f.left
+
+			new_formula.label = f.label
+			new_formula.left = refineltl(inter_formula)
+
+		elif f.label == '&' or f.label == '|':
+			
+			raise Exception("Cannot return equivalent STL formula")
+		else:
+			new_formula = ltlformula
+
 	elif curr_label == '&' or curr_label == '|':
 		
 		f1 = refineltl(ltlformula.left)
 		f2 = refineltl(ltlformula.right)
-
 		new_formula.label = curr_label
 		new_formula.left = f1
 		new_formula.right = f2
-
-
 	else:
-
 		new_formula = ltlformula
 
 	return new_formula
+
 		
 
+# ltl2stl
+# Scarlet remove F from len 1
 
 
-def ltl2stl(ltlformula):
+def ltl2stl(ltlformula, interval_map, alphabet, prop2pred, start_time, end_time, temporal):
 	'''
 	write an inductive definition
 	'''
-	pass
+	#refined = refineltl(ltlformula)
+	print(start_time, end_time)
+	stl_formula = STLFormula()
+	#start_time = interval_map[0][0]
+	#end_time = interval_map[-1][1]
+
+	if ltlformula.label in alphabet:
+
+		if temporal:
+			stl_formula = STLFormula([('G',interval_map[0]),prop2pred[ltlformula.label], None])
+		else:
+			stl_formula = STLFormula([prop2pred[ltlformula.label], None, None])
+
+	elif ltlformula.label == '!':
+
+		stl_formula.label = ltlformula.label
+		stl_formula.left = ltl2stl(ltlformula.left, interval_map, alphabet, prop2pred, start_time, end_time, temporal)
+		stl_formula.right = None
+
+	#if ltlformula.label in alphabet or ltlformula.
+	elif ltlformula.label == '&' or ltlformula.label == '|':
+
+		stl_formula.label = ltlformula.label
+		stl_formula.left = ltl2stl(ltlformula.left, interval_map, alphabet, prop2pred, start_time, end_time, temporal)
+		stl_formula.right = ltl2stl(ltlformula.right, interval_map, alphabet, prop2pred, start_time, end_time, temporal)
 
 
+	elif ltlformula.label == 'X':
+		
+		stl_formula.right = None
+
+		if ltlformula.left.label == 'F':
+			stl_formula.label = ('F',(interval_map[1][1],end_time))
+			stl_formula.left = ltl2stl(ltlformula.left, interval_map, alphabet, prop2pred, start_time, end_time, temporal=False)
+
+
+		elif ltlformula.left.label in alphabet or ltlformula.left.label == '!':
+			stl_formula.label = ('G',interval_map[1])
+			stl_formula.left = ltl2stl(ltlformula.left, interval_map, alphabet, prop2pred, start_time, end_time, temporal=False)
+
+	elif isinstance(ltlformula.label, tuple):
+
+		stl_formula.right = None
+
+		if ltlformula.left.label == 'F':
+
+			stl_formula.label = ('F',(interval_map[ltlformula.label[1]][1], end_time))
+			stl_formula.left = ltl2stl(ltlformula.left, interval_map, alphabet, prop2pred, start_time, end_time, temporal=False)
+
+		elif ltlformula.left.label in alphabet or ltlformula.left.label == '!':
+			
+			stl_formula.label = ('G',interval_map[ltlformula.label[1]])
+			stl_formula.left = ltl2stl(ltlformula.left, interval_map, alphabet, prop2pred, start_time, end_time, temporal=False)
+
+	elif ltlformula.label == 'F':
+
+		stl_formula.right = None
+		stl_formula.label = ('F', (start_time, end_time))
+		stl_formula.left = ltl2stl(ltlformula.left, interval_map, alphabet, prop2pred,  start_time, end_time, temporal=False)
+
+	return stl_formula
 
 
 
@@ -231,20 +351,20 @@ def learnSTL(signalfile):
 	sample.readSample(signalfile)
 
 	wordsamplefile = signalfile.split('.')[0]+'.trace'
+	alphabet, interval_map, prop2pred, start_time, end_time = convertSignals2Traces(sample, wordsamplefile, ['F', 'X', '&', '|', '!'])
 
-
-	convertSignals2Traces(sample, wordsamplefile, ['X','&', '|', '!'])
+	print(interval_map)
 
 	ltllearning = ['Scarlet']
 
-	#if 'Scarlet' in ltllearning:
+	if 'Scarlet' in ltllearning:
 
-	#	ltlformula = inferLTL(wordsamplefile,'output.csv')
+		ltlformula = inferLTL(wordsamplefile,'output.csv')
 
 	#print(ltlformula)
-	#f = refineltl(ltlformula)
-	#print(f.right.right.label)
-	#print(f.prettyPrint())
-	
+	f = refineltl(ltlformula)
+	print(f.prettyPrint())
+	final_formula = ltl2stl(f, interval_map, alphabet, prop2pred, start_time, end_time, True)
+	print(final_formula.prettyPrint())
 
 learnSTL('cart-pole.signal')
