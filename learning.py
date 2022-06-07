@@ -2,7 +2,7 @@ from signaltraces import Sample, samplePoint, Signal, WordSample, Trace, binaryS
 from Scarlet.inferLTL import inferLTL
 from Scarlet.formulaTree import Formula
 from formula import LTLFormula, STLFormula
-
+import math
 
 
 
@@ -140,11 +140,51 @@ def convertSignals2Traces(sample, wordsamplefile, operators):
 	wordsample.operators = operators
 
 
-	print(sample.predicates)
+	#print(sample.predicates)
 
 	wordsample.writeToFile(wordsamplefile)
 	
-	return wordsample.alphabet, interval_map, prop2pred, abs_start_time, abs_end_time
+	return wordsample, wordsample.alphabet, interval_map, prop2pred, abs_start_time, abs_end_time
+
+
+def uniformIntervals(wordsample, interval_map, abs_start_time, abs_end_time):
+
+	diff_list = []
+	for i in interval_map:
+		diff_list.append(interval_map[i][1]-interval_map[i][0])
+
+	new_diff = math.gcd(diff_list)
+	
+	i0 = abs_start_time
+	i1 = abs_start_time + new_diff
+	c = 0	
+	while i1 < abs_end_time:
+		new_interval_map[c] = (i0,i1)
+		i0 = i1  
+		i1 = i1+new_diff
+		c+=1
+
+	new_word_sample = WordSample(positive=[], negative=[])
+
+	for word in wordsample.positive:
+		new_word = Trace(vector = [])
+		for i in range(len(word.vector)):
+			new_word.vector+=[word_vector[i]]*((interval_map[i][1]-interval_map[i][0])/new_diff)
+		
+		new_word_sample.positive.append(new_word)
+
+
+	for word in wordsample.negative:
+		new_word = Trace(vector = [])
+		for i in range(len(word.vector)):
+			new_word.vector+=[word_vector[i]]*((interval_map[i][1]-interval_map[i][0])/new_diff)
+		new_word_sample.negative.append(new_word)
+
+	new_word_sample.writeToFile(word_sample_file)
+
+	return new_word_sample, new_interval_map 
+
+
 
 def refineltl(ltlformula):
 	'''
@@ -282,7 +322,7 @@ def ltl2stl(ltlformula, interval_map, alphabet, prop2pred, start_time, end_time,
 	write an inductive definition
 	'''
 	#refined = refineltl(ltlformula)
-	print(start_time, end_time)
+	#print(start_time, end_time)
 	stl_formula = STLFormula()
 	#start_time = interval_map[0][0]
 	#end_time = interval_map[-1][1]
@@ -352,6 +392,7 @@ def learnSTL(signalfile):
 
 	wordsamplefile = signalfile.split('.')[0]+'.trace'
 	alphabet, interval_map, prop2pred, start_time, end_time = convertSignals2Traces(sample, wordsamplefile, ['F', 'X', '&', '|', '!'])
+	uniformIntervals(convertSignals2Traces)
 
 	print(interval_map)
 

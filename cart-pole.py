@@ -31,7 +31,7 @@ def theta_omega_policy(obs):
 # env.close()
 
 
-def generateSignals(signalfile = 'cart-pole.signal', pos_number=10, neg_number=10, T=15):
+def generateSignals(signalfile = 'cart-pole.signal', pos_number=10, neg_number=10, T=20):
 	
 	env = gym.make('CartPole-v1')
 	sample = Sample()
