@@ -66,6 +66,7 @@ def convertSignals2Traces(sample, wordsamplefile, operators):
 	abs_start_time = interesting_time_points[0] 
 	abs_end_time = interesting_time_points[-1]
 	interval_map = {}
+	#print(len(interesting_time_points))
 	for i in range(len(interesting_time_points)-1):
 		interval_map[i] = (interesting_time_points[i],interesting_time_points[i+1])
 
@@ -102,7 +103,7 @@ def convertSignals2Traces(sample, wordsamplefile, operators):
 		timed_word = binarySignal([samplePoint(time=start_time, vector=start_value)])
 
 
-		for t in interesting_time_points:
+		for t in interesting_time_points[1:]:
 			
 			if t > end_time:
 				break
@@ -123,6 +124,7 @@ def convertSignals2Traces(sample, wordsamplefile, operators):
 						curr_value.append(binary_signals[(signal,var,c)].sequence[head[(var,c)]].vector[0])
 
 			timed_word.addPoint(samplePoint(time=t, vector=curr_value))
+		#print(timed_word, len(timed_word.sequence))
 
 		trace_vector = []
 		for sp in timed_word.sequence:
@@ -147,16 +149,18 @@ def convertSignals2Traces(sample, wordsamplefile, operators):
 	return wordsample, wordsample.alphabet, interval_map, prop2pred, abs_start_time, abs_end_time
 
 
-def uniformIntervals(wordsample, interval_map, abs_start_time, abs_end_time):
+def uniformIntervals(wordsample, uniform_sample_file, interval_map, abs_start_time, abs_end_time):
 
 	diff_list = []
 	for i in interval_map:
-		diff_list.append(interval_map[i][1]-interval_map[i][0])
+		diff_list.append(int(1000*(round(interval_map[i][1]-interval_map[i][0],3))))
+	
 
-	new_diff = math.gcd(diff_list)
+	new_diff = math.gcd(*diff_list)/1000
 	
 	i0 = abs_start_time
 	i1 = abs_start_time + new_diff
+	new_interval_map={}
 	c = 0	
 	while i1 < abs_end_time:
 		new_interval_map[c] = (i0,i1)
@@ -165,22 +169,23 @@ def uniformIntervals(wordsample, interval_map, abs_start_time, abs_end_time):
 		c+=1
 
 	new_word_sample = WordSample(positive=[], negative=[])
-
 	for word in wordsample.positive:
 		new_word = Trace(vector = [])
-		for i in range(len(word.vector)):
-			new_word.vector+=[word_vector[i]]*((interval_map[i][1]-interval_map[i][0])/new_diff)
+		for i in range(len(word.vector)-1):
+			new_word.vector+=[word.vector[i]]*(int(round((interval_map[i][1]-interval_map[i][0]),3)/new_diff))
+		new_word.vector.append(word.vector[len(word.vector)-1])
 		
 		new_word_sample.positive.append(new_word)
 
 
 	for word in wordsample.negative:
 		new_word = Trace(vector = [])
-		for i in range(len(word.vector)):
-			new_word.vector+=[word_vector[i]]*((interval_map[i][1]-interval_map[i][0])/new_diff)
+		for i in range(len(word.vector)-1):
+			new_word.vector+=[word.vector[i]]*(int(round((interval_map[i][1]-interval_map[i][0]),3)/new_diff))
+		new_word.vector.append(word.vector[len(word.vector)-1])
 		new_word_sample.negative.append(new_word)
 
-	new_word_sample.writeToFile(word_sample_file)
+	new_word_sample.writeToFile(uniform_sample_file)
 
 	return new_word_sample, new_interval_map 
 
@@ -391,21 +396,23 @@ def learnSTL(signalfile):
 	sample.readSample(signalfile)
 
 	wordsamplefile = signalfile.split('.')[0]+'.trace'
-	alphabet, interval_map, prop2pred, start_time, end_time = convertSignals2Traces(sample, wordsamplefile, ['F', 'X', '&', '|', '!'])
-	uniformIntervals(convertSignals2Traces)
-
-	print(interval_map)
+	uniformsamplefile= signalfile.split('.')[0] + 'uniform.trace'
+	wordsample, alphabet, interval_map, prop2pred, start_time, end_time = convertSignals2Traces(sample, wordsamplefile, ['F', 'X', '&', '|', '!'])
+	new_sample, new_interval_map= uniformIntervals(wordsample, uniformsamplefile, interval_map, start_time, end_time)
+	print(len(interval_map))
+	print(len(new_interval_map))
+	print(len(sample.positive[0].sequence))
 
 	ltllearning = ['Scarlet']
 
 	if 'Scarlet' in ltllearning:
 
-		ltlformula = inferLTL(wordsamplefile,'output.csv')
+		ltlformula = inferLTL(uniformsamplefile,'output.csv')
 
 	#print(ltlformula)
 	f = refineltl(ltlformula)
 	print(f.prettyPrint())
-	final_formula = ltl2stl(f, interval_map, alphabet, prop2pred, start_time, end_time, True)
+	final_formula = ltl2stl(f, new_interval_map, alphabet, prop2pred, start_time, end_time, True)
 	print(final_formula.prettyPrint())
 
 learnSTL('cart-pole.signal')
