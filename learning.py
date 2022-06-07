@@ -151,13 +151,15 @@ def convertSignals2Traces(sample, wordsamplefile, operators):
 
 def uniformIntervals(wordsample, uniform_sample_file, interval_map, abs_start_time, abs_end_time):
 
-	diff_list = []
-	for i in interval_map:
-		diff_list.append(int(1000*(round(interval_map[i][1]-interval_map[i][0],3))))
-	
+	new_diff = int(1000*(round(interval_map[0][1]-interval_map[0][0],3)))
+	for i in list(interval_map.keys())[1:]:
+		
+		diff = int(1000*(round(interval_map[i][1]-interval_map[i][0],3)))
+		new_diff = math.gcd(diff, new_diff)
 
-	new_diff = math.gcd(*diff_list)/1000
-	
+	#new_diff = math.gcd(*diff_list)/1000
+	new_diff = new_diff/1000
+
 	i0 = abs_start_time
 	i1 = abs_start_time + new_diff
 	new_interval_map={}
