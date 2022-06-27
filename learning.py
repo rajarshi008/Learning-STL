@@ -401,9 +401,10 @@ def learnSTL(signalfile):
 	uniformsamplefile= signalfile.split('.')[0] + 'uniform.trace'
 	wordsample, alphabet, interval_map, prop2pred, start_time, end_time = convertSignals2Traces(sample, wordsamplefile, ['F', 'X', '&', '|', '!'])
 	new_sample, new_interval_map= uniformIntervals(wordsample, uniformsamplefile, interval_map, start_time, end_time)
-	print(len(interval_map))
-	print(len(new_interval_map))
-	print(len(sample.positive[0].sequence))
+	print('Length of traces are '+ str(len(sample.positive[0].sequence)))
+	print('Number of intervals without uniformization is '+ str(len(interval_map)))
+	print('Number of intervals with uniformization is '+ str(len(new_interval_map)))
+	
 
 	ltllearning = ['Scarlet']
 
@@ -414,7 +415,7 @@ def learnSTL(signalfile):
 	#print(ltlformula)
 	f = refineltl(ltlformula)
 	print(f.prettyPrint())
-	final_formula = ltl2stl(f, new_interval_map, alphabet, prop2pred, start_time, end_time, True)
-	print(final_formula.prettyPrint())
+	#final_formula = ltl2stl(f, new_interval_map, alphabet, prop2pred, start_time, end_time, True)
+	#print(final_formula.prettyPrint())
 
 learnSTL('cart-pole.signal')
