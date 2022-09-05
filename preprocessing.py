@@ -6,7 +6,7 @@ import math
 
 
 
-def convertSignals2Traces(sample, wordsamplefile, operators):
+def convertSignals2Traces(sample, wordsamplefile='example.trace', operators=['F', 'X', '&', '|', '!']):
 	'''
 	takes a sample of signals and produces a equivalent sample of traces in wordsamplefile
 	'''
@@ -67,8 +67,8 @@ def convertSignals2Traces(sample, wordsamplefile, operators):
 	abs_end_time = interesting_time_points[-1]
 	interval_map = {}
 	#print(len(interesting_time_points))
-	for i in range(len(interesting_time_points)-1):
-		interval_map[i] = (interesting_time_points[i],interesting_time_points[i+1])
+	#for i in range(len(interesting_time_points)-1):
+	#	interval_map[i] = (interesting_time_points[i],interesting_time_points[i+1])
 
 	
 	wordsample = WordSample(positive=[], negative=[])
@@ -139,14 +139,14 @@ def convertSignals2Traces(sample, wordsamplefile, operators):
 
 	wordsample.positive = list(positive_set)
 	wordsample.negative = list(negative_set)
-	wordsample.operators = operators
+	#wordsample.operators = operators
 
 
 	#print(sample.predicates)
 
-	wordsample.writeToFile(wordsamplefile)
+	#wordsample.writeToFile(wordsamplefile)
 	
-	return wordsample, wordsample.alphabet, interval_map, prop2pred, abs_start_time, abs_end_time
+	return wordsample, wordsample.alphabet, prop2pred, interesting_time_points
 
 
 def uniformIntervals(wordsample, uniform_sample_file, interval_map, abs_start_time, abs_end_time):

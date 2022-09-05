@@ -1,0 +1,5 @@
+Time Elapsed,Formula Size,Formula,is Terminated?
+0.035,7,((q | p) & (X (X r)))
+0.041,7,(X (p | (q & (X r))))
+0.052,7,(X (X (p | (q & r))))
+0.064,7,(X (X (p | (q & r)))),1

@@ -1,0 +1,6 @@
+Time Elapsed,Formula Size,Formula,is Terminated?
+0.226,23,((X (p | (X (X (X (X (X (X (X (X (X (X (X (X (X (X (! r))))))))))))))))) & (F (! q)))
+25.898,13,((F q) & (F ((! r) & (X (X (X (X (X (! q)))))))))
+60.06,11,((F q) & (F ((! r) & (X ((! q) & (F r))))))
+63.657,10,((F q) & (F (((! q) & (! r)) & (F r))))
+65.933,10,((F q) & (F (((! q) & (! r)) & (F r)))),1
