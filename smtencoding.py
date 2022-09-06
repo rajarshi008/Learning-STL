@@ -1,5 +1,5 @@
 from preprocessing import convertSignals2Trace
-
+from z3 import *
 
 
 
