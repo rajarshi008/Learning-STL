@@ -1,4 +1,3 @@
- 
 def convertTextToSignal(text):
 
 	sequence = []
@@ -34,7 +33,7 @@ class Signal:
 	'''
 	signals are finite piece-wise linear continuous functions
 	'''
-	def __init__(self, sequence):
+	def __init__(self, sequence=[]):
 
 		if sequence==[] or isinstance(sequence[0], samplePoint):
 			self.sequence = sequence
@@ -83,7 +82,7 @@ class Trace:
 	'''
 	defines a sequences of letters, which could be a subset of propositions or symbol from an alphabet
 	'''
-	def __init__(self, vector,lasso_start=None):
+	def __init__(self, vector, lasso_start=None):
 			
 		self.vector = vector
 		self.length = len(vector)
@@ -160,7 +159,8 @@ class Sample:
 				if mode==3:
 
 					self.vars = list(line.strip().split(','))
-
+					print(self.vars)
+					
 				if mode==4:
 
 					if self.vars == []:
@@ -214,7 +214,7 @@ class WordSample:
 		self.alphabet = alphabet
 		self.num_positives = len(self.positive)
 		self.num_negatives = len(self.negative)
-		self.operators=operators
+		self.operators = operators
 
 	
 	def extract_alphabet(self):

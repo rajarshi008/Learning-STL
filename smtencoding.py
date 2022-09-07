@@ -1,11 +1,10 @@
-from preprocessing import convertSignals2Trace
 from z3 import *
-
+from formula import STLFormula
 
 
 class SMTEncoding:
 
-	def __init__(self, binary_sample, formula_size, alphabet itp, utp): 
+	def __init__(self, traces, formula_size, alphabet, itp, utp): 
 		
 		defaultOperators = ['G', 'F', '!', '&','|', '->']
 		unary = ['G', 'F', '!']	
@@ -30,11 +29,12 @@ class SMTEncoding:
 		
 		self.solver = Solver()
 		self.formula_size = formula_size
-		self.traces = testTraces
+		self.traces = traces
+		self.alphabet = alphabet
 		self.itp = itp
 		self.utp = utp
 		self.numtp = len(self.itp)
-		self.listOfPropositions = alphabet
+		self.listOfPropositions = list(range(len(alphabet)))
 
 		#self.listOfPropositions = [i for i in range(self.traces.numPropositions)]
 		
@@ -51,11 +51,11 @@ class SMTEncoding:
 
 		self.operatorsAndPropositions = self.listOfOperators + self.listOfPropositions
 		
-		self.x = { (i, o) : Bool('x_%d_%d'%(i,o)) for i in range(self.formula_size) for o in self.operatorsAndPropositions }
+		self.x = { (i, o) : Bool('x_%d_%s'%(i,o)) for i in range(self.formula_size) for o in self.operatorsAndPropositions }
 		
 		self.a = {i: Real('a_%d'%i) for i in range(self.formula_size)}
 	
-	   	self.b = {i: Real('a_%d'%i) for i in range(self.formula_size)}
+		self.b = {i: Real('a_%d'%i) for i in range(self.formula_size)}
 
 
 		self.l = {(parentOperator, childOperator) : Bool('l_%d_%d'%(parentOperator,childOperator))\
@@ -66,7 +66,7 @@ class SMTEncoding:
 												 for parentOperator in range(1, self.formula_size)\
 												 for childOperator in range(parentOperator)}
 
-		self.y = { (i, traceIdx, pos) : Bool('y_%d_%d_%d'%(i,traceIdx,positionInTrace))\
+		self.y = { (i, traceIdx, pos) : Bool('y_%d_%d_%d'%(i,traceIdx,pos))\
 				  for i in range(self.formula_size)\
 				  for traceIdx, trace in enumerate(self.traces.positive + self.traces.negative)\
 				  for pos in range(len(self.utp)) }
@@ -86,8 +86,8 @@ class SMTEncoding:
 
 		#self.futureReachBound() #<---
 		
-		self.solver.assert_and_track(And( [ self.y[(self.formula_size - 1, traceIdx, 0)] for traceIdx in range(len(self.traces.acceptedTraces))] ), 'accepted traces should be accepting')
-		self.solver.assert_and_track(And( [ Not(self.y[(self.formula_size - 1, traceIdx, 0)]) for traceIdx in range(len(self.traces.acceptedTraces), len(self.traces.acceptedTraces+self.traces.rejectedTraces))] ),\
+		self.solver.assert_and_track(And( [ self.y[(self.formula_size - 1, traceIdx, 0)] for traceIdx in range(len(self.traces.positive))] ), 'accepted traces should be accepting')
+		self.solver.assert_and_track(And( [ Not(self.y[(self.formula_size - 1, traceIdx, 0)]) for traceIdx in range(len(self.traces.negative), len(self.traces.positive+self.traces.negative))] ),\
 									 'rejecting traces should be rejected')
 
 	'''
@@ -191,7 +191,7 @@ class SMTEncoding:
 											'temporal lower bounds values of globally operator for node %d'%i)
  
 				self.solver.assert_and_track(Implies(self.x[(i, 'G')], Or([self.b[i] == tp for tp in self.utp])),\
-											'temporal lower bounds values of globally operator for node %d'%i)
+											'temporal upper bounds values of globally operator for node %d'%i)
  
 			if 'F' in self.listOfOperators:				  
 				  #finally				
@@ -202,7 +202,7 @@ class SMTEncoding:
 											'temporal lower bounds values of finally operator for node %d'%i)
  
 				self.solver.assert_and_track(Implies(self.x[(i, 'F')], Or([self.b[i] == tp for tp in self.utp])),\
-											'temporal lower bounds values of finally operator for node %d'%i)						 
+											'temporal upper bounds values of finally operator for node %d'%i)						 
 
 
 	def firstOperatorProposition(self):
@@ -229,131 +229,140 @@ class SMTEncoding:
 			#	
 				for traceIdx, tr in enumerate(self.traces.positive + self.traces.negative):
 				#	
+					conjunction_list = []
+					itp_pos = 0
+
 					for tp in range(len(self.utp)):
+						#print('tp', tp)
+						
+						if self.utp[tp] == self.itp[itp_pos] and tp != 0:
+							itp_pos += 1
+
+						conjunction_list.append(self.y[(i,traceIdx, tp)] if tr.vector[itp_pos][p] == True else Not(self.y[(i, traceIdx, tp)]))
 
 
 
-				self.solver.assert_and_track(Implies(self.x[(i, p)],\
-														  And([ self.y[(i,traceIdx, tp)] if tr.vector[floor(tp)][p] == True else Not(self.y[(i, traceIdx, timestep)])\
-															   for tp in range(len(self.utp))])),\
+					self.solver.assert_and_track(Implies(self.x[(i, p)],\
+														  And(conjunction_list)),\
 														  "semantics of propositional variable node_"+str(i)+' var _'+str(p)+'_trace_'+str(traceIdx))
+
 		
-   def exactlyOneOperator(self):
+	def exactlyOneOperator(self):
 				
+		self.solver.assert_and_track(And([\
+										  AtMost( [self.x[k] for k in self.x if k[0] == i] +[1])\
+										  for i in range(self.formula_size)\
+										  ]),\
+										  "at most one operator per subformula"\
+		)
+		
+		self.solver.assert_and_track(And([\
+										  AtLeast( [self.x[k] for k in self.x if k[0] == i] +[1])\
+										  for i in range(self.formula_size)\
+										  ]),\
+										  "at least one operator per subformula"\
+		)
+		
+		if (self.formula_size > 0):
 			self.solver.assert_and_track(And([\
-											  AtMost( [self.x[k] for k in self.x if k[0] == i] +[1])\
-											  for i in range(self.formula_size)\
-											  ]),\
-											  "at most one operator per subformula"\
-			)
-			
+											Implies(
+												Or(
+													[self.x[(i, op)] for op in self.binaryOperators+self.unaryOperators]
+												),
+												AtMost( [self.l[k] for k in self.l if k[0] == i] +[1])\
+				)
+										  for i in range(1,self.formula_size)\
+										  ]),\
+										  "at most one left operator for binary and unary operators"\
+		)
+		
+		if (self.formula_size > 0):
 			self.solver.assert_and_track(And([\
-											  AtLeast( [self.x[k] for k in self.x if k[0] == i] +[1])\
-											  for i in range(self.formula_size)\
-											  ]),\
-											  "at least one operator per subformula"\
-			)
-			
-			if (self.formula_size > 0):
-				self.solver.assert_and_track(And([\
-												Implies(
-													Or(
-														[self.x[(i, op)] for op in self.binaryOperators+self.unaryOperators]
-													),
-													AtMost( [self.l[k] for k in self.l if k[0] == i] +[1])\
-					)
-											  for i in range(1,self.formula_size)\
-											  ]),\
-											  "at most one left operator for binary and unary operators"\
-			)
-			
-			if (self.formula_size > 0):
-				self.solver.assert_and_track(And([\
-												Implies(
-													Or(
-														[self.x[(i, op)] for op in
-														 self.binaryOperators + self.unaryOperators]
-													),
-													AtLeast( [self.l[k] for k in self.l if k[0] == i] +[1])\
-													)
-											  for i in range(1,self.formula_size)\
-											  ]),\
-											  "at least one left operator for binary and unary operators"\
-			)
+											Implies(
+												Or(
+													[self.x[(i, op)] for op in
+													 self.binaryOperators + self.unaryOperators]
+												),
+												AtLeast( [self.l[k] for k in self.l if k[0] == i] +[1])\
+												)
+										  for i in range(1,self.formula_size)\
+										  ]),\
+										  "at least one left operator for binary and unary operators"\
+		)
 
-			if (self.formula_size > 0):
-				self.solver.assert_and_track(And([ \
-					Implies(
+		if (self.formula_size > 0):
+			self.solver.assert_and_track(And([ \
+				Implies(
+					Or(
+						[self.x[(i, op)] for op in self.binaryOperators]
+					),
+					AtMost([self.r[k] for k in self.r if k[0] == i] + [1]) \
+					)
+				for i in range(1, self.formula_size) \
+				]), \
+				"at most one right operator for binary" \
+				)
+
+		if (self.formula_size > 0):
+			self.solver.assert_and_track(And([ \
+				Implies(
+					Or(
+						[self.x[(i, op)] for op in
+						 self.binaryOperators]
+					),
+					AtLeast([self.r[k] for k in self.r if k[0] == i] + [1]) \
+					)
+				for i in range(1, self.formula_size) \
+				]), \
+				"at least one right operator for binary" \
+				)
+
+		if (self.formula_size > 0):
+			self.solver.assert_and_track(And([ \
+				Implies(	
+					Or(
+						[self.x[(i, op)] for op in
+						 self.unaryOperators]
+					),
+					Not(
+						Or([self.r[k] for k in self.r if k[0] == i]) \
+					)
+				)
+				for i in range(1, self.formula_size) \
+				]), \
+				"no right operators for unary" \
+				)
+
+		if (self.formula_size > 0):
+			self.solver.assert_and_track(And([ \
+				Implies(
+					Or(
+						[self.x[(i, op)] for op in
+						 self.listOfPropositions]
+					),
+					Not(
 						Or(
-							[self.x[(i, op)] for op in self.binaryOperators]
-						),
-						AtMost([self.r[k] for k in self.r if k[0] == i] + [1]) \
+							Or([self.r[k] for k in self.r if k[0] == i]), \
+							Or([self.l[k] for k in self.l if k[0] == i])
 						)
-					for i in range(1, self.formula_size) \
-					]), \
-					"at most one right operator for binary" \
-					)
 
-			if (self.formula_size > 0):
-				self.solver.assert_and_track(And([ \
-					Implies(
-						Or(
-							[self.x[(i, op)] for op in
-							 self.binaryOperators]
-						),
-						AtLeast([self.r[k] for k in self.r if k[0] == i] + [1]) \
-						)
-					for i in range(1, self.formula_size) \
-					]), \
-					"at least one right operator for binary" \
 					)
-
-			if (self.formula_size > 0):
-				self.solver.assert_and_track(And([ \
-					Implies(	
-						Or(
-							[self.x[(i, op)] for op in
-							 self.unaryOperators]
-						),
-						Not(
-							Or([self.r[k] for k in self.r if k[0] == i]) \
-						)
-					)
-					for i in range(1, self.formula_size) \
-					]), \
-					"no right operators for unary" \
-					)
-
-			if (self.formula_size > 0):
-				self.solver.assert_and_track(And([ \
-					Implies(
-						Or(
-							[self.x[(i, op)] for op in
-							 self.listOfPropositions]
-						),
-						Not(
-							Or(
-								Or([self.r[k] for k in self.r if k[0] == i]), \
-								Or([self.l[k] for k in self.l if k[0] == i])
-							)
-
-						)
-					)
-					for i in range(1, self.formula_size) \
-					]), \
-					"no left or right children for variables" \
+				)
+				for i in range(1, self.formula_size) \
+				]), \
+				"no left or right children for variables" \
 					)
 	
 
 	def operatorsSemantics(self):
 
-		for traceIdx, tr in enumerate(self.traces.acceptedTraces + self.traces.rejectedTraces):
+		for traceIdx, tr in enumerate(self.traces.positive + self.traces.negative):
 			
-			for i in range(1, self.formula_size):	
-				
+			for i in range(1, self.formula_size):
+
+				T = len(self.utp)
 				if '|' in self.listOfOperators:
 
-					T = tr.lengthOfTrace
 					#disjunction
 					self.solver.assert_and_track(Implies(self.x[(i, '|')],\
 															And([ Implies(\
@@ -361,17 +370,18 @@ class SMTEncoding:
 																			   [self.l[i, leftArg], self.r[i, rightArg]]\
 																			   ),\
 																		   And(\
-																			   [ self.y[(i, traceIdx, timestep)]\
+																			   [ self.y[(i, traceIdx, tp)]\
 																				==\
 																				Or(\
-																				   [ self.y[(leftArg, traceIdx, timestep)],\
-																					self.y[(rightArg, traceIdx, timestep)]]\
+																				   [ self.y[(leftArg, traceIdx, tp)],\
+																					self.y[(rightArg, traceIdx, tp)]]\
 																				   )\
-																				 for timestep in range(T)]\
+																				 for tp in range(T)]\
 																			   )\
 																		   )\
 																		  for leftArg in range(i) for rightArg in range(i) ])),\
 															 'semantics of disjunction for trace %d and node %d'%(traceIdx, i))
+				
 				if '&' in self.listOfOperators:
 					#conjunction
 					self.solver.assert_and_track(Implies(self.x[(i, '&')],\
@@ -380,13 +390,13 @@ class SMTEncoding:
 																			   [self.l[i, leftArg], self.r[i, rightArg]]\
 																			   ),\
 																		   And(\
-																			   [ self.y[(i, traceIdx, timestep)]\
+																			   [ self.y[(i, traceIdx, tp)]\
 																				==\
 																				And(\
-																				   [ self.y[(leftArg, traceIdx, timestep)],\
-																					self.y[(rightArg, traceIdx, timestep)]]\
+																				   [ self.y[(leftArg, traceIdx, tp)],\
+																					self.y[(rightArg, traceIdx, tp)]]\
 																				   )\
-																				 for timestep in range(T)]\
+																				 for tp in range(T)]\
 																			   )\
 																		   )\
 																		  for leftArg in range(i) for rightArg in range(i) ])),\
@@ -401,18 +411,19 @@ class SMTEncoding:
 																			   [self.l[i, leftArg], self.r[i, rightArg]]\
 																			   ),\
 																		   And(\
-																			   [ self.y[(i, traceIdx, timestep)]\
+																			   [ self.y[(i, traceIdx, tp)]\
 																				==\
 																				Implies(\
-																				  self.y[(leftArg, traceIdx, timestep)],\
-																				  self.y[(rightArg, traceIdx, timestep)]\
+																				  self.y[(leftArg, traceIdx, tp)],\
+																				  self.y[(rightArg, traceIdx, tp)]\
 																				   )\
-																				 for timestep in range(T)]\
+																				 for tp in range(T)]\
 																			   )\
 																		   )\
 																		  for leftArg in range(i) for rightArg in range(i) ])),\
 															 'semantics of implication for trace %d and node %d'%(traceIdx, i))
 
+				
 				if '!' in self.listOfOperators:
 					#negation
 					self.solver.assert_and_track(Implies(self.x[(i, '!')],\
@@ -420,8 +431,8 @@ class SMTEncoding:
 															   Implies(\
 																		 self.l[(i,onlyArg)],\
 																		 And([\
-																			  self.y[(i, traceIdx, timestep)] == Not(self.y[(onlyArg, traceIdx, timestep)])\
-																			  for timestep in range(T)\
+																			  self.y[(i, traceIdx, tp)] == Not(self.y[(onlyArg, traceIdx, tp)])\
+																			  for tp in range(T)\
 																			  ])\
 																		  )\
 															   for onlyArg in range(i)\
@@ -429,6 +440,7 @@ class SMTEncoding:
 														   ),\
 												   'semantics of negation for trace %d and node %d' % (traceIdx, i)\
 												   )
+				
 				if 'G' in self.listOfOperators:
 					#globally				
 					self.solver.assert_and_track(Implies(self.x[(i, 'G')],\
@@ -436,14 +448,11 @@ class SMTEncoding:
 															   Implies(\
 																		 self.l[(i,onlyArg)],\
 																		 And([\
-																			  self.y[(i, traceIdx, timestep)] ==\
-																			  And(timestep+self.a[i] <  )
-
-
-																			  And([self.y[(onlyArg, traceIdx, futureTimestep)] for futureTimestep in range(timestep, tr.lengthOfTrace) ])\
-																			  for timestep in range(T)\
-																			  ])\
-																		  )\
+																			  self.y[(i, traceIdx, tp)] ==\
+																			  And(\
+																			  	[Implies(And((tp+self.a[i]<=tp1),(tp1<=tp+self.b[i])), self.y[onlyArg, traceIdx, tp1]) \
+																			  	for tp1 in range(tp,T)])\
+																			  for tp in range(T)]))\
 															   for onlyArg in range(i)\
 															   ])\
 														   ),\
@@ -451,28 +460,26 @@ class SMTEncoding:
 												   )
 
 				if 'F' in self.listOfOperators:				  
-					  #finally				
+					#finally				
 					self.solver.assert_and_track(Implies(self.x[(i, 'F')],\
 														   And([\
 															   Implies(\
 																		 self.l[(i,onlyArg)],\
 																		 And([\
-																			  self.y[(i, traceIdx, timestep)] ==\
-																			  Or([self.y[(onlyArg, traceIdx, futureTimestep)] for futureTimestep in range(timestep, tr.lengthOfTrace) ])\
-																			  for timestep in range(T)\
-																			  ])\
-																		  )\
+																			  self.y[(i, traceIdx, tp)] ==\
+																			  Or(\
+																			  	[Implies(And((tp+self.a[i]<=tp1),(tp1<=tp+self.b[i])), self.y[onlyArg, traceIdx, tp1]) \
+																			  	for tp1 in range(tp,T)])\
+																		  for tp in range(T)]))\
 															   for onlyArg in range(i)\
 															   ])\
 														   ),\
 												   'semantics of finally operator for trace %d and node %d' % (traceIdx, i)\
-												   )
-				  
-				
+				  									)
+													
 	
-
 	def reconstructWholeFormula(self, model):
-		return self.reconstructFormula(self.formula_size-1, model)   
+		return self.reconstructFormula(self.formula_size-1, model)
 		
 	def reconstructFormula(self, rowId, model):
 		def getValue(row, vars):
@@ -483,25 +490,16 @@ class SMTEncoding:
 				return tt[0]
 		operator = getValue(rowId, self.x)
 		if operator in self.listOfPropositions:
-			return Formula('x'+str(operator))
+			return STLFormula(str(alphabet[operator]))
 		elif operator in self.unaryOperators:
 			leftChild = getValue(rowId, self.l)
-			return Formula([operator, self.reconstructFormula(leftChild, model)])
+			if operator in ['F', 'G']:
+				lower_bound = model[self.a[rowId]]
+				upper_bound = model[self.b[rowId]]
+				return STLFormula([[operator,(lower_bound, upper_bound)], self.reconstructFormula(leftChild, model)]) 
+			else:
+				return STLFormula([operator, self.reconstructFormula(leftChild, model)])
 		elif operator in self.binaryOperators:
 			leftChild = getValue(rowId, self.l)
 			rightChild = getValue(rowId, self.r)
-			return Formula([operator, self.reconstructFormula(leftChild,model), self.reconstructFormula(rightChild, model)])
-		
-
-def main()
-
-	sample = Sample()
-	sample.readSample(signalfile)
-	wordsamplefile = signalfile.split('.')[0]+'.trace'
-	
-	wordsample, alphabet, interval_map, prop2pred, start_time, end_time = convertSignals2Traces(sample, wordsamplefile, ['F', 'X', '&', '|', '!'])
-
-
-
-
-
+			return STLFormula([operator, self.reconstructFormula(leftChild,model), self.reconstructFormula(rightChild, model)])

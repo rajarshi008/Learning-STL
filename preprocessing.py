@@ -1,6 +1,6 @@
 from signaltraces import Sample, samplePoint, Signal, WordSample, Trace, binarySignal
-from Scarlet.inferLTL import inferLTL
-from Scarlet.formulaTree import Formula
+#from Scarlet.inferLTL import inferLTL
+#from Scarlet.formulaTree import Formula
 from formula import LTLFormula, STLFormula
 import math
 
@@ -13,6 +13,7 @@ def convertSignals2Traces(sample, wordsamplefile='example.trace', operators=['F'
 
 	start_time = sample.positive[0].sequence[0].time # all signals start at same time
 	#end_time = sample.positive[0].sequence[-1].time # all signals end at same time
+	print(sample.vars)
 
 	binary_signals = {}
 	interesting_time_points = {start_time}
@@ -68,7 +69,7 @@ def convertSignals2Traces(sample, wordsamplefile='example.trace', operators=['F'
 	interval_map = {}
 	#print(len(interesting_time_points))
 	#for i in range(len(interesting_time_points)-1):
-	#	interval_map[i] = (interesting_time_points[i],interesting_time_points[i+1])
+	#interval_map[i] = (interesting_time_points[i],interesting_time_points[i+1])
 
 	
 	wordsample = WordSample(positive=[], negative=[])
@@ -77,6 +78,7 @@ def convertSignals2Traces(sample, wordsamplefile='example.trace', operators=['F'
 	prop2pred = {}
 	for var in sample.vars:
 		for c in sample.predicates[var]:
+			print(var,c)
 			prop2pred['p'+str(i)] = '('+str(var)+'>'+str(c)+')'
 			i+=1
 	wordsample.alphabet = list(prop2pred.keys())
@@ -125,7 +127,7 @@ def convertSignals2Traces(sample, wordsamplefile='example.trace', operators=['F'
 
 			timed_word.addPoint(samplePoint(time=t, vector=curr_value))
 		#print(timed_word, len(timed_word.sequence))
-
+		
 		trace_vector = []
 		for sp in timed_word.sequence:
 			trace_vector.append(tuple(sp.vector))
@@ -452,7 +454,7 @@ def ltl2stl(ltlformula, interval_map, alphabet, prop2pred, start_time, end_time,
 
 
 
-
+'''
 def learnSTL(signalfile):
 	
 	sample = Sample()
@@ -480,3 +482,4 @@ def learnSTL(signalfile):
 	#print(final_formula.prettyPrint())
 
 learnSTL('cart-pole.signal')
+'''
