@@ -249,15 +249,17 @@ unary_operators = ['F','G','!']
 
 class STLFormula(SimpleTree):
 
-	def __init__(self, formulaArg = "dummyF"):
+	def __init__(self, label=None, right=None, left=None):
 		self.size = None
-		if not isinstance(formulaArg, str):
-			self.label = formulaArg[0]
-			self.left = formulaArg[1]
-			try:
-				self.right = formulaArg[2]
-			except:
-				self.right = None
+		self.label = label
+		self.left = left
+		self.right = right
+		
+	def _isLeaf(self):
+
+		return (self.right == None) and (self.left == None)
+
+
 
 	def prettyPrint(self, top=False):
 		if top is True:
@@ -266,10 +268,12 @@ class STLFormula(SimpleTree):
 		else:
 			lb = "("
 			rb = ")"
+
 		if self._isLeaf():
 			return self.label
 
-		operator = self.label[0] 
+		operator = self.label[0]	
+		print(operator)
 
 		if operator in untimed_operators:
 		
@@ -278,14 +282,17 @@ class STLFormula(SimpleTree):
 				return lb + operator + self.left.prettyPrint() + rb				
 
 			else:
+				print(self.left.prettyPrint())
+				print(operator)
+				print(self.right.prettyPrint())
 
-				return lb + self.left.prettyPrint() +" "+  operator +" "+ self.right.prettyPrint() + rb
+				return lb + self.left.prettyPrint() +" "+ operator +" "+ self.right.prettyPrint() + rb
 
 		else:
 
 			if operator in unary_operators:
-
-				return lb + operator + '[' + str(round(self.label[1][0],2)) + "," + str(round(self.label[1][1],2)) + "]"+ self.left.prettyPrint() + rb
+				
+				return lb + operator + '[' + str(self.label[1][0]) + "," + str(self.label[1][1]) + "]"+ self.left.prettyPrint() + rb
 			
 			else:
 

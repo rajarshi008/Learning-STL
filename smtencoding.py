@@ -6,9 +6,14 @@ class SMTEncoding:
 
 	def __init__(self, traces, formula_size, alphabet, itp, utp): 
 		
-		defaultOperators = ['G', 'F', '!', '&','|', '->']
-		unary = ['G', 'F', '!']	
-		binary = ['&', '|', '->']
+		#defaultOperators = ['G', 'F', '!', '&','|', '->']
+		#unary = ['G', 'F', '!']	
+		#binary = ['&', '|', '->']
+		
+		defaultOperators = ['G', 'F']
+		unary = ['G', 'F']	
+		binary = []
+		
 		#except for the operators, the nodes of the "syntaxDAG" are additionally the propositional variables 
 		
 		'''
@@ -71,7 +76,8 @@ class SMTEncoding:
 				  for traceIdx, trace in enumerate(self.traces.positive + self.traces.negative)\
 				  for pos in range(len(self.utp)) }
 		
-
+		print('x-vars:',self.x)
+		print('y-vars',self.y)
 		self.solver.set(unsat_core=unsatCore)
 
 		# Structural Constraints
@@ -81,102 +87,16 @@ class SMTEncoding:
 
 		self.temporalBoundsRelation() #<---
 		
-		self.propositionsSemantics() 
-		self.operatorsSemantics() #<---
+		#self.propositionsSemantics()
+		#self.operatorsSemantics() #<---
 
 		#self.futureReachBound() #<---
 		
-		self.solver.assert_and_track(And( [ self.y[(self.formula_size - 1, traceIdx, 0)] for traceIdx in range(len(self.traces.positive))] ), 'accepted traces should be accepting')
-		self.solver.assert_and_track(And( [ Not(self.y[(self.formula_size - 1, traceIdx, 0)]) for traceIdx in range(len(self.traces.negative), len(self.traces.positive+self.traces.negative))] ),\
-									 'rejecting traces should be rejected')
+		#self.solver.assert_and_track(And( [ self.y[(self.formula_size - 1, traceIdx, 0)] for traceIdx in range(len(self.traces.positive))] ), 'accepted traces should be accepting')
+		#self.solver.assert_and_track(And( [ Not(self.y[(self.formula_size - 1, traceIdx, 0)]) for traceIdx in range(len(self.traces.negative), len(self.traces.positive+self.traces.negative))] ),\
+		#							 'rejecting traces should be rejected')
 
-	'''
-	def futureReachBound(self):	
-
-		for i in range(self.formula_size):	
-				
-			for p in self.listOfPropositions:
-
-				self.solver.assert_and_track(Implies(self.x[(i, p)], self.f[i] == 0.0),\
-														 'future reach of proposition %s for node %d'%(p,i))
-
-			if '|' in self.listOfOperators:
-				
-				#disjunction
-				self.solver.assert_and_track(Implies(self.x[(i, '|')],\
-														And([ Implies(\
-																	   And(\
-																		   [self.l[i, leftArg], self.r[i, rightArg]]\
-																		   ),\
-																	   self.f[i] = max(self.f[leftArg], self.f[rightArg])
-																	   )\
-																	  for leftArg in range(i) for rightArg in range(i) ])),\
-														 'future reach of disjunction for node %d'%i)
-			if '&' in self.listOfOperators:
-				
-				#conjunction
-				self.solver.assert_and_track(Implies(self.x[(i, '&')],\
-														And([ Implies(\
-																	   And(\
-																		   [self.l[i, leftArg], self.r[i, rightArg]]\
-																		   ),\
-																	   self.f[i] = max(self.f[leftArg], self.f[rightArg])
-																	   )\
-																	  for leftArg in range(i) for rightArg in range(i) ])),\
-														 'future reach of conjunction for node %d'%(traceIdx, i))
-				 
-			if '->' in self.listOfOperators:
-				   
-				#implication
-				self.solver.assert_and_track(Implies(self.x[(i, '->')],\
-														And([ Implies(\
-																	   And(\
-																		   [self.l[i, leftArg], self.r[i, rightArg]]\
-																		   ),\
-																	   self.f[i] = max(self.f[leftArg], self.f[rightArg])
-																	   )\
-																	  for leftArg in range(i) for rightArg in range(i) ])),\
-														 'future reach of implication for node %d'%(traceIdx, i))
-			if '!' in self.listOfOperators:
-				  #negation
-				self.solver.assert_and_track(Implies(self.x[(i, '!')],\
-													   And([\
-														   Implies(\
-																	 self.l[(i,onlyArg)],\
-																	 self.f[i] = self.f[onlyArg]
-																	  )\
-														   for onlyArg in range(i)\
-														   ])\
-													   ),\
-											   'future reach of negation for node %d' % (traceIdx, i)\
-											   )
-			if 'G' in self.listOfOperators:
-				  #globally				
-				self.solver.assert_and_track(Implies(self.x[(i, 'G')],\
-													   And([\
-														   Implies(\
-																	 self.l[(i,onlyArg)],\
-																	 self.f[i] = sum([If(self.b[i] == j, self.interestingTP[j], 0) for j in self.numTP]) + self.f[onlyArg]
-																	  )\
-														   for onlyArg in range(i)\
-														   ])\
-													   ),\
-											   'future reach of globally operator for node %d' % (traceIdx, i)\
-											   )
-
-			if 'F' in self.listOfOperators:				  
-				#finally				
-				self.solver.assert_and_track(Implies(self.x[(i, 'F')],\
-													   And([\
-														   Implies(\
-																	 self.l[(i,onlyArg)],\
-																	self.f[i] = sum([If(self.b[i] == j, self.interestingTP[j], 0) for j in self.numTP]) + self.f[onlyArg]
-																	  )\
-														   for onlyArg in range(i)\
-														   ])\
-													   ),\
-										   'future reach of finally operator for node %d'%i)
-	'''										   
+										   
 			  
 	def temporalBoundsRelation(self):
 
@@ -229,22 +149,29 @@ class SMTEncoding:
 			#	
 				for traceIdx, tr in enumerate(self.traces.positive + self.traces.negative):
 				#	
+					print('For trace %d'%traceIdx)
 					conjunction_list = []
 					itp_pos = 0
 
 					for tp in range(len(self.utp)):
 						#print('tp', tp)
 						
-						if self.utp[tp] == self.itp[itp_pos] and tp != 0:
+
+						if self.utp[tp] == self.itp[itp_pos]:
 							itp_pos += 1
 
-						conjunction_list.append(self.y[(i,traceIdx, tp)] if tr.vector[itp_pos][p] == True else Not(self.y[(i, traceIdx, tp)]))
+						#if tp>=10:
+						#	print(self.utp[tp], self.itp[itp_pos-1], tr.vector[itp_pos-1][p])
+
+						conjunction_list.append(self.y[(i,traceIdx, tp)] \
+							if tr.vector[itp_pos-1][p] == True else Not(self.y[(i, traceIdx, tp)]))
 
 
 
 					self.solver.assert_and_track(Implies(self.x[(i, p)],\
 														  And(conjunction_list)),\
-														  "semantics of propositional variable node_"+str(i)+' var _'+str(p)+'_trace_'+str(traceIdx))
+														  "semantics of propositional variable node_"\
+														  +str(i)+' var _'+str(p)+'_trace_'+str(traceIdx))
 
 		
 	def exactlyOneOperator(self):
@@ -476,8 +403,8 @@ class SMTEncoding:
 														   ),\
 												   'semantics of finally operator for trace %d and node %d' % (traceIdx, i)\
 				  									)
-													
-	
+										
+		
 	def reconstructWholeFormula(self, model):
 		return self.reconstructFormula(self.formula_size-1, model)
 		
@@ -490,16 +417,104 @@ class SMTEncoding:
 				return tt[0]
 		operator = getValue(rowId, self.x)
 		if operator in self.listOfPropositions:
-			return STLFormula(str(alphabet[operator]))
+			return STLFormula(label=str(self.alphabet[operator]))
 		elif operator in self.unaryOperators:
 			leftChild = getValue(rowId, self.l)
 			if operator in ['F', 'G']:
 				lower_bound = model[self.a[rowId]]
 				upper_bound = model[self.b[rowId]]
-				return STLFormula([[operator,(lower_bound, upper_bound)], self.reconstructFormula(leftChild, model)]) 
+				return STLFormula(label=[operator,(lower_bound, upper_bound)], left=self.reconstructFormula(leftChild, model)) 
 			else:
-				return STLFormula([operator, self.reconstructFormula(leftChild, model)])
+				return STLFormula(label=operator, left=self.reconstructFormula(leftChild, model))
 		elif operator in self.binaryOperators:
 			leftChild = getValue(rowId, self.l)
 			rightChild = getValue(rowId, self.r)
-			return STLFormula([operator, self.reconstructFormula(leftChild,model), self.reconstructFormula(rightChild, model)])
+			return STLFormula(label=operator, left=self.reconstructFormula(leftChild,model), right=self.reconstructFormula(rightChild, model))
+
+	'''
+	def futureReachBound(self):	
+
+		for i in range(self.formula_size):	
+				
+			for p in self.listOfPropositions:
+
+				self.solver.assert_and_track(Implies(self.x[(i, p)], self.f[i] == 0.0),\
+														 'future reach of proposition %s for node %d'%(p,i))
+
+			if '|' in self.listOfOperators:
+				
+				#disjunction
+				self.solver.assert_and_track(Implies(self.x[(i, '|')],\
+														And([ Implies(\
+																	   And(\
+																		   [self.l[i, leftArg], self.r[i, rightArg]]\
+																		   ),\
+																	   self.f[i] = max(self.f[leftArg], self.f[rightArg])
+																	   )\
+																	  for leftArg in range(i) for rightArg in range(i) ])),\
+														 'future reach of disjunction for node %d'%i)
+			if '&' in self.listOfOperators:
+				
+				#conjunction
+				self.solver.assert_and_track(Implies(self.x[(i, '&')],\
+														And([ Implies(\
+																	   And(\
+																		   [self.l[i, leftArg], self.r[i, rightArg]]\
+																		   ),\
+																	   self.f[i] = max(self.f[leftArg], self.f[rightArg])
+																	   )\
+																	  for leftArg in range(i) for rightArg in range(i) ])),\
+														 'future reach of conjunction for node %d'%(traceIdx, i))
+				 
+			if '->' in self.listOfOperators:
+				   
+				#implication
+				self.solver.assert_and_track(Implies(self.x[(i, '->')],\
+														And([ Implies(\
+																	   And(\
+																		   [self.l[i, leftArg], self.r[i, rightArg]]\
+																		   ),\
+																	   self.f[i] = max(self.f[leftArg], self.f[rightArg])
+																	   )\
+																	  for leftArg in range(i) for rightArg in range(i) ])),\
+														 'future reach of implication for node %d'%(traceIdx, i))
+			if '!' in self.listOfOperators:
+				  #negation
+				self.solver.assert_and_track(Implies(self.x[(i, '!')],\
+													   And([\
+														   Implies(\
+																	 self.l[(i,onlyArg)],\
+																	 self.f[i] = self.f[onlyArg]
+																	  )\
+														   for onlyArg in range(i)\
+														   ])\
+													   ),\
+											   'future reach of negation for node %d' % (traceIdx, i)\
+											   )
+			if 'G' in self.listOfOperators:
+				  #globally				
+				self.solver.assert_and_track(Implies(self.x[(i, 'G')],\
+													   And([\
+														   Implies(\
+																	 self.l[(i,onlyArg)],\
+																	 self.f[i] = sum([If(self.b[i] == j, self.interestingTP[j], 0) for j in self.numTP]) + self.f[onlyArg]
+																	  )\
+														   for onlyArg in range(i)\
+														   ])\
+													   ),\
+											   'future reach of globally operator for node %d' % (traceIdx, i)\
+											   )
+
+			if 'F' in self.listOfOperators:				  
+				#finally				
+				self.solver.assert_and_track(Implies(self.x[(i, 'F')],\
+													   And([\
+														   Implies(\
+																	 self.l[(i,onlyArg)],\
+																	self.f[i] = sum([If(self.b[i] == j, self.interestingTP[j], 0) for j in self.numTP]) + self.f[onlyArg]
+																	  )\
+														   for onlyArg in range(i)\
+														   ])\
+													   ),\
+										   'future reach of finally operator for node %d'%i)
+	'''	  
