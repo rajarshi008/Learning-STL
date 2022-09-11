@@ -20,7 +20,7 @@ class learnSTL:
 		self.signal_sample = Sample()
 		self.signal_sample.readSample(self.signalfile)
 		#self.predicates = 
-		self.size_bound = 3
+		self.size_bound = 4
 		self.fr_bound = 2
 		self.search_order = [(i,j) for i in range(1, self.fr_bound+1) for j in range(1, self.size_bound+1)] #can try out other search orders
 		self.predicates = self.signal_sample.predicates
@@ -98,8 +98,8 @@ class learnSTL:
 		'''
 		Searches for appropriate MTL formulas for the given predicates
 		'''
-		for fr in [1]:
-		#for fr in range(1,self.fr_bound+1):
+		#for fr in [2]:
+		for fr in range(1,self.fr_bound+1):
 
 			print('---------------Fixing fr to be %d---------------'%fr)
 			curr_sample = self.truncate_sample(fr)
@@ -110,8 +110,8 @@ class learnSTL:
 			print(itp)
 			print(utp)
 
-			for formula_size in [2]: 
-			#for formula_size in range(1,self.size_bound+1): 
+			#for formula_size in [3]: 
+			for formula_size in range(1,self.size_bound+1): 
 				print('---------------Searching for formula size %d---------------'%formula_size)
 				encoding = SMTEncoding(binary_sample, formula_size, alphabet, itp, utp)
 				encoding.encodeFormula()
@@ -138,7 +138,7 @@ def main():
 
 	parser = argparse.ArgumentParser()
 
-	parser.add_argument('--input_file', '-i', dest='input_file', default = './dummy.signal')
+	parser.add_argument('--input_file', '-i', dest='input_file', default = './dummy-basic.signal')
 	parser.add_argument('--timeout', '-t', dest='timeout', default=900, type=int)
 	parser.add_argument('--outputcsv', '-o', dest='csvname', default= './result.csv')
 	parser.add_argument('--verbose', '-v', dest='verbose', default=3, action='count')

@@ -175,7 +175,6 @@ class LTLFormula(SimpleTree):
 			if self.left == None and self.right == None:
 				if self.label == 'true' or self.label == 'false':
 					self.size = 0
-					print("Eta hocche")
 				else:
 					self.size = 1
 			leftSize=0
@@ -279,7 +278,7 @@ class STLFormula(SimpleTree):
 		
 			if operator in unary_operators:
 			
-				return lb + operator + self.left.prettyPrint() + rb				
+				return lb + operator + self.left.prettyPrint() + rb			
 
 			else:
 				print(self.left.prettyPrint())
@@ -293,8 +292,7 @@ class STLFormula(SimpleTree):
 			if operator in unary_operators:
 				
 				return lb + operator + '[' + str(self.label[1][0]) + "," + str(self.label[1][1]) + "]"+ self.left.prettyPrint() + rb
-			
 			else:
-
+				
 				return lb + self.left.prettyPrint() +" "+  operator + '[' + str(round(self.label[1][0],2)) + "," + str(round(self.label[1][1],2)) + "]"+ " " + self.right.prettyPrint() + rb
 		

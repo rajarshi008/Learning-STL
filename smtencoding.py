@@ -6,13 +6,13 @@ class SMTEncoding:
 
 	def __init__(self, traces, formula_size, alphabet, itp, utp): 
 		
-		#defaultOperators = ['G', 'F', '!', '&','|', '->']
-		#unary = ['G', 'F', '!']	
-		#binary = ['&', '|', '->']
+		defaultOperators = ['G', 'F', '!', '&','|', '->']
+		unary = ['G', 'F', '!']	
+		binary = ['&', '|', '->']
 		
-		defaultOperators = ['G', 'F']
-		unary = ['G', 'F']	
-		binary = []
+		#defaultOperators = ['G', 'F']
+		#unary = ['G', 'F']	
+		#binary = []
 		
 		#except for the operators, the nodes of the "syntaxDAG" are additionally the propositional variables 
 		
@@ -76,25 +76,27 @@ class SMTEncoding:
 				  for traceIdx, trace in enumerate(self.traces.positive + self.traces.negative)\
 				  for pos in range(len(self.utp)) }
 		
-		print('x-vars:',self.x)
-		print('y-vars',self.y)
+		#print('x-vars:',self.x)
+		#print('y-vars',self.y)
 		self.solver.set(unsat_core=unsatCore)
 
 		# Structural Constraints
 		self.exactlyOneOperator()	   
 		self.firstOperatorProposition()
 		self.noDanglingPropositions()
-
 		self.temporalBoundsRelation() #<---
 		
-		#self.propositionsSemantics()
-		#self.operatorsSemantics() #<---
+		# Semantic Constraints
+		self.propositionsSemantics()
+		self.operatorsSemantics() #<---
 
 		#self.futureReachBound() #<---
 		
-		#self.solver.assert_and_track(And( [ self.y[(self.formula_size - 1, traceIdx, 0)] for traceIdx in range(len(self.traces.positive))] ), 'accepted traces should be accepting')
-		#self.solver.assert_and_track(And( [ Not(self.y[(self.formula_size - 1, traceIdx, 0)]) for traceIdx in range(len(self.traces.negative), len(self.traces.positive+self.traces.negative))] ),\
-		#							 'rejecting traces should be rejected')
+		self.solver.assert_and_track(And( [ self.y[(self.formula_size - 1, traceIdx, 0)] \
+					for traceIdx in range(len(self.traces.positive))] ), 'accepted traces should be accepting')
+		self.solver.assert_and_track(And( [ Not(self.y[(self.formula_size - 1, traceIdx, 0)]) \
+					for traceIdx in range(len(self.traces.negative), len(self.traces.positive+self.traces.negative))] ),\
+									 'rejecting traces should be rejected')
 
 										   
 			  
@@ -104,32 +106,34 @@ class SMTEncoding:
 
 			if 'G' in self.listOfOperators:
 				  #globally				
-				self.solver.assert_and_track(Implies(self.x[(i, 'G')], self.a[i] <= self.b[i]),\
+				self.solver.assert_and_track(Implies(self.x[(i, 'G')], self.a[i] < self.b[i]),\
 											'temporal bounds of globally operator for node %d'%i)
 
-				self.solver.assert_and_track(Implies(self.x[(i, 'G')], Or([self.a[i] == tp for tp in self.utp])),\
+				self.solver.assert_and_track(Implies(self.x[(i, 'G')], Or([self.a[i] == self.utp[tp] for tp in range(len(self.utp))])),\
 											'temporal lower bounds values of globally operator for node %d'%i)
  
-				self.solver.assert_and_track(Implies(self.x[(i, 'G')], Or([self.b[i] == tp for tp in self.utp])),\
+				self.solver.assert_and_track(Implies(self.x[(i, 'G')], Or([self.b[i] == self.utp[tp] for tp in range(len(self.utp))])),\
 											'temporal upper bounds values of globally operator for node %d'%i)
  
 			if 'F' in self.listOfOperators:				  
 				  #finally				
-				self.solver.assert_and_track(Implies(self.x[(i, 'F')], self.a[i] <= self.b[i]),\
+				self.solver.assert_and_track(Implies(self.x[(i, 'F')], self.a[i] < self.b[i]),\
 											   'temporal bounds of finally operator for node %d'%i)
 				
-				self.solver.assert_and_track(Implies(self.x[(i, 'F')], Or([self.a[i] == tp for tp in self.utp])),\
+				self.solver.assert_and_track(Implies(self.x[(i, 'F')], Or([self.a[i] == self.utp[tp] for tp in range(len(self.utp))])),\
 											'temporal lower bounds values of finally operator for node %d'%i)
  
-				self.solver.assert_and_track(Implies(self.x[(i, 'F')], Or([self.b[i] == tp for tp in self.utp])),\
+				self.solver.assert_and_track(Implies(self.x[(i, 'F')], Or([self.b[i] == self.utp[tp] for tp in range(len(self.utp))])),\
 											'temporal upper bounds values of finally operator for node %d'%i)						 
 
 
 	def firstOperatorProposition(self):
+		
 		self.solver.assert_and_track(Or([self.x[k] for k in self.x if k[0] == 0 and k[1] in self.listOfPropositions]),\
 									 'first operator a variable')
 
 	def noDanglingPropositions(self):
+		
 		if self.formula_size > 0:
 			self.solver.assert_and_track(
 				And([
@@ -149,7 +153,7 @@ class SMTEncoding:
 			#	
 				for traceIdx, tr in enumerate(self.traces.positive + self.traces.negative):
 				#	
-					print('For trace %d'%traceIdx)
+					#print('For trace %d'%traceIdx)
 					conjunction_list = []
 					itp_pos = 0
 
@@ -278,7 +282,7 @@ class SMTEncoding:
 				for i in range(1, self.formula_size) \
 				]), \
 				"no left or right children for variables" \
-					)
+				)
 	
 
 	def operatorsSemantics(self):
@@ -373,14 +377,15 @@ class SMTEncoding:
 					self.solver.assert_and_track(Implies(self.x[(i, 'G')],\
 														   And([\
 															   Implies(\
-																		 self.l[(i,onlyArg)],\
+																		 self.l[(i,j)],\
 																		 And([\
 																			  self.y[(i, traceIdx, tp)] ==\
 																			  And(\
-																			  	[Implies(And((tp+self.a[i]<=tp1),(tp1<=tp+self.b[i])), self.y[onlyArg, traceIdx, tp1]) \
+																			  	[Implies(And((self.utp[tp]+self.a[i]<=self.utp[tp1]),\
+																			  		(self.utp[tp1]<=self.utp[tp]+self.b[i])), self.y[j, traceIdx, tp1]) \
 																			  	for tp1 in range(tp,T)])\
 																			  for tp in range(T)]))\
-															   for onlyArg in range(i)\
+															   for j in range(i)\
 															   ])\
 														   ),\
 												   'semantics of globally operator for trace %d and node %d' % (traceIdx, i)\
@@ -391,14 +396,15 @@ class SMTEncoding:
 					self.solver.assert_and_track(Implies(self.x[(i, 'F')],\
 														   And([\
 															   Implies(\
-																		 self.l[(i,onlyArg)],\
+																		 self.l[(i,j)],\
 																		 And([\
 																			  self.y[(i, traceIdx, tp)] ==\
 																			  Or(\
-																			  	[Implies(And((tp+self.a[i]<=tp1),(tp1<=tp+self.b[i])), self.y[onlyArg, traceIdx, tp1]) \
+																			  	[And([(self.utp[tp]+self.a[i]<=self.utp[tp1]),\
+																			  		(self.utp[tp1]<=self.utp[tp]+self.b[i]), self.y[j, traceIdx, tp1]]) \
 																			  	for tp1 in range(tp,T)])\
 																		  for tp in range(T)]))\
-															   for onlyArg in range(i)\
+															   for j in range(i)\
 															   ])\
 														   ),\
 												   'semantics of finally operator for trace %d and node %d' % (traceIdx, i)\
