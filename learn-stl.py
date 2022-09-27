@@ -20,11 +20,11 @@ class learnSTL:
 		self.signal_sample = Sample()
 		self.signal_sample.readSample(self.signalfile)
 		#self.predicates = 
-		self.size_bound = 4
-		self.fr_bound = 2
-		self.search_order = [(i,j) for i in range(1, self.fr_bound+1) for j in range(1, self.size_bound+1)] #can try out other search orders
+		self.size_bound = 5
+		self.fr_bound = 50
+		self.search_order = [(i,j) for i in range(1, self.fr_bound+1,5) for j in range(1, self.size_bound+1)] #can try out other search orders
 		self.predicates = self.signal_sample.predicates
-		print(self.search_order)
+		#print(self.search_order)
 
 
 	def interesting_pred(self):
@@ -84,36 +84,56 @@ class learnSTL:
 		#new_diff = math.gcd(*diff_list)/1000
 		gcd = new_diff/1000
 
-		print('gcd', new_diff)
+		print('GCD value: ', gcd)
 		start_time = itp[0]
 		end_time = itp[-1]
-		print((end_time-start_time)/new_diff)
+		#print((end_time-start_time)/new_diff)
 		
 		utp = [round(start_time+i*gcd,3) for i in range(int((end_time-start_time)/gcd))]
 
 		utp.append(end_time)
 		return utp
 
+	def calcNewTP(self, itp):
+
+		add_itp = [round(itp[j]-itp[i],3) for i in range(len(itp)) for j in range(i,len(itp))]
+		utp = sorted(list(set(itp + add_itp)))
+		
+		return utp
+
+
+
 	def search(self):
 		'''
 		Searches for appropriate MTL formulas for the given predicates
 		'''
 		#for fr in [2]:
-		for fr in range(1,self.fr_bound+1):
+		for fr in range(5,self.fr_bound+1,5):
 
-			print('---------------Fixing fr to be %d---------------'%fr)
+			print('***************Fixing fr to be %d***************'%fr)
 			curr_sample = self.truncate_sample(fr)
 			binary_sample, alphabet, prop2pred, itp = convertSignals2Traces(curr_sample) # possible optimization to add only new points
 			#print(type(binary_sample.positive[0]))
-			binary_sample.writeToFile('dummy_%d.trace'%fr)
-			utp = self.calcUTP(itp)
+			#binary_sample.writeToFile('dummy_%d.trace'%fr)
 			print(itp)
-			print(utp)
 
-			#for formula_size in [3]: 
-			for formula_size in range(1,self.size_bound+1): 
+			utp = self.calcUTP(itp)
+			
+			#utp = self.calcNewTP(itp)
+			
+			#print(itp)
+			#print(utp)
+			#print(utp1)
+
+
+			print('* Number of interesting time points: %d'%len(itp))
+			#print('* Number of new interesting time points: %d'%len(utp))
+			print('* Number of uniformized time points: %d'%len(utp))
+
+			for formula_size in [3]: 
+			#for formula_size in range(1,self.size_bound+1): 
 				print('---------------Searching for formula size %d---------------'%formula_size)
-				encoding = SMTEncoding(binary_sample, formula_size, alphabet, itp, utp)
+				encoding = SMTEncoding(binary_sample, formula_size, alphabet, itp, utp, prop2pred)
 				encoding.encodeFormula()
 				
 				solverRes = encoding.solver.check()
@@ -122,13 +142,12 @@ class learnSTL:
 				#Print this to see constraint creation time and constraint solving time separately
 				#print(depth, regexDepth)
 				#print((i,j), "Creating time:", t_create, "Solving time:", t_solve)
-				print(solverRes)
+				print('The solver found', solverRes)
 
 				if solverRes == sat:
 					solverModel = encoding.solver.model()
 					formula = encoding.reconstructWholeFormula(solverModel)
-					
-					print(formula.prettyPrint())
+					print('The STL formula:', formula.prettyPrint())
 					break
 
 
@@ -138,19 +157,17 @@ def main():
 
 	parser = argparse.ArgumentParser()
 
-	parser.add_argument('--input_file', '-i', dest='input_file', default = './dummy-basic.signal')
+	parser.add_argument('--input_file', '-i', dest='input_file', default = './maritime-case1.signal')
 	parser.add_argument('--timeout', '-t', dest='timeout', default=900, type=int)
 	parser.add_argument('--outputcsv', '-o', dest='csvname', default= './result.csv')
 	parser.add_argument('--verbose', '-v', dest='verbose', default=3, action='count')
 	args,unknown = parser.parse_known_args()
-
+	
 	input_file = args.input_file
 	timeout = float(args.timeout)
 
-
 	learner = learnSTL(input_file)
 	learner.search()
-
 
 
 main()

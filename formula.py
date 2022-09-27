@@ -241,9 +241,9 @@ class TreeToFormula(Transformer):
             return str(args[0])
 
 
-untimed_operators = ['!','&', '|']
-timed_operators = ['F','G','U']
-binary_operators = ['U','&','|']
+untimed_operators = ['!','&', '|', '->']
+timed_operators = ['F','G']
+binary_operators = ['&','|', '->']
 unary_operators = ['F','G','!']
 
 class STLFormula(SimpleTree):
@@ -271,8 +271,11 @@ class STLFormula(SimpleTree):
 		if self._isLeaf():
 			return self.label
 
-		operator = self.label[0]	
-		print(operator)
+		if isinstance(self.label, list):
+			operator = self.label[0]
+		else:
+			operator = self.label
+
 
 		if operator in untimed_operators:
 		
@@ -281,9 +284,6 @@ class STLFormula(SimpleTree):
 				return lb + operator + self.left.prettyPrint() + rb			
 
 			else:
-				print(self.left.prettyPrint())
-				print(operator)
-				print(self.right.prettyPrint())
 
 				return lb + self.left.prettyPrint() +" "+ operator +" "+ self.right.prettyPrint() + rb
 
@@ -292,7 +292,8 @@ class STLFormula(SimpleTree):
 			if operator in unary_operators:
 				
 				return lb + operator + '[' + str(self.label[1][0]) + "," + str(self.label[1][1]) + "]"+ self.left.prettyPrint() + rb
+			
 			else:
-				
-				return lb + self.left.prettyPrint() +" "+  operator + '[' + str(round(self.label[1][0],2)) + "," + str(round(self.label[1][1],2)) + "]"+ " " + self.right.prettyPrint() + rb
+				#print('adbhut', operator)
+				return lb + self.left.prettyPrint() +" "+  operator + '[' + str(self.label[1][0]) + "," + str(self.label[1][1]) + "]"+ " " + self.right.prettyPrint() + rb
 		

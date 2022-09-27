@@ -13,20 +13,22 @@ def convertSignals2Traces(sample, wordsamplefile='example.trace', operators=['F'
 
 	start_time = sample.positive[0].sequence[0].time # all signals start at same time
 	#end_time = sample.positive[0].sequence[-1].time # all signals end at same time
-	print(sample.vars)
+	#print(sample.vars)
+
+	print(sample.positive[0])
 
 	binary_signals = {}
 	interesting_time_points = {start_time}
-
-	for signal in sample.positive+sample.negative:
-
-		end_time = signal.sequence[-1].time
-		for i in range(len(sample.vars)):
-			var = sample.vars[i]
+	for i in range(len(sample.vars)):
+		var = sample.vars[i]
+		for c in sample.predicates[var]:
 			
-			for c in sample.predicates[var]:
-				#Optimization: there is relation between the binary signals for same var
+			for signal in sample.positive+sample.negative:
 
+				end_time = signal.sequence[-1].time
+				#print(signal)
+				#Optimization: there is relation between the binary signals for same var
+				
 				start_value = 1 if signal.sequence[0].vector[i] - c > 0 else 0
 				curr_binary_signal = binarySignal([samplePoint(time=start_time, vector=[start_value])])
 
@@ -78,7 +80,7 @@ def convertSignals2Traces(sample, wordsamplefile='example.trace', operators=['F'
 	prop2pred = {}
 	for var in sample.vars:
 		for c in sample.predicates[var]:
-			print(var,c)
+			#print(var,c)
 			prop2pred['p'+str(i)] = '('+str(var)+'>'+str(c)+')'
 			i+=1
 	wordsample.alphabet = list(prop2pred.keys())

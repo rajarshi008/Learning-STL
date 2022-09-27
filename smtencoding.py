@@ -4,9 +4,9 @@ from formula import STLFormula
 
 class SMTEncoding:
 
-	def __init__(self, traces, formula_size, alphabet, itp, utp): 
+	def __init__(self, traces, formula_size, alphabet, itp, utp, prop2pred): 
 		
-		defaultOperators = ['G', 'F', '!', '&','|', '->']
+		defaultOperators = ['G', 'F', '!', '&', '|', '->']
 		unary = ['G', 'F', '!']	
 		binary = ['&', '|', '->']
 		
@@ -40,6 +40,7 @@ class SMTEncoding:
 		self.utp = utp
 		self.numtp = len(self.itp)
 		self.listOfPropositions = list(range(len(alphabet)))
+		self.prop2pred = prop2pred
 
 		#self.listOfPropositions = [i for i in range(self.traces.numPropositions)]
 		
@@ -60,7 +61,7 @@ class SMTEncoding:
 		
 		self.a = {i: Real('a_%d'%i) for i in range(self.formula_size)}
 	
-		self.b = {i: Real('a_%d'%i) for i in range(self.formula_size)}
+		self.b = {i: Real('b_%d'%i) for i in range(self.formula_size)}
 
 
 		self.l = {(parentOperator, childOperator) : Bool('l_%d_%d'%(parentOperator,childOperator))\
@@ -78,7 +79,7 @@ class SMTEncoding:
 		
 		#print('x-vars:',self.x)
 		#print('y-vars',self.y)
-		self.solver.set(unsat_core=unsatCore)
+		self.solver.set()
 
 		# Structural Constraints
 		self.exactlyOneOperator()	   
@@ -91,13 +92,14 @@ class SMTEncoding:
 		self.operatorsSemantics() #<---
 
 		#self.futureReachBound() #<---
-		
-		self.solver.assert_and_track(And( [ self.y[(self.formula_size - 1, traceIdx, 0)] \
-					for traceIdx in range(len(self.traces.positive))] ), 'accepted traces should be accepting')
-		self.solver.assert_and_track(And( [ Not(self.y[(self.formula_size - 1, traceIdx, 0)]) \
-					for traceIdx in range(len(self.traces.negative), len(self.traces.positive+self.traces.negative))] ),\
-									 'rejecting traces should be rejected')
+		for traceIdx in range(len(self.traces.positive)):
+			self.solver.add(self.y[(self.formula_size - 1, traceIdx, 0)])
+					
 
+		for traceIdx in range(len(self.traces.negative), len(self.traces.positive+self.traces.negative)):
+			self.solver.add(Not(self.y[(self.formula_size - 1, traceIdx, 0)]))
+
+		
 										   
 			  
 	def temporalBoundsRelation(self):
@@ -106,7 +108,7 @@ class SMTEncoding:
 
 			if 'G' in self.listOfOperators:
 				  #globally				
-				self.solver.assert_and_track(Implies(self.x[(i, 'G')], self.a[i] < self.b[i]),\
+				self.solver.assert_and_track(Implies(self.x[(i, 'G')], (self.a[i] < self.b[i])),\
 											'temporal bounds of globally operator for node %d'%i)
 
 				self.solver.assert_and_track(Implies(self.x[(i, 'G')], Or([self.a[i] == self.utp[tp] for tp in range(len(self.utp))])),\
@@ -117,7 +119,7 @@ class SMTEncoding:
  
 			if 'F' in self.listOfOperators:				  
 				  #finally				
-				self.solver.assert_and_track(Implies(self.x[(i, 'F')], self.a[i] < self.b[i]),\
+				self.solver.assert_and_track(Implies(self.x[(i, 'F')], (self.a[i] < self.b[i])),\
 											   'temporal bounds of finally operator for node %d'%i)
 				
 				self.solver.assert_and_track(Implies(self.x[(i, 'F')], Or([self.a[i] == self.utp[tp] for tp in range(len(self.utp))])),\
@@ -423,16 +425,26 @@ class SMTEncoding:
 				return tt[0]
 		operator = getValue(rowId, self.x)
 		if operator in self.listOfPropositions:
-			return STLFormula(label=str(self.alphabet[operator]))
+		
+			#print(str(self.alphabet[operator]))
+			return STLFormula(label=self.prop2pred[str(self.alphabet[operator])])
+		
 		elif operator in self.unaryOperators:
+		
 			leftChild = getValue(rowId, self.l)
 			if operator in ['F', 'G']:
+				
 				lower_bound = model[self.a[rowId]]
 				upper_bound = model[self.b[rowId]]
+				#print([operator,(lower_bound, upper_bound)])
 				return STLFormula(label=[operator,(lower_bound, upper_bound)], left=self.reconstructFormula(leftChild, model)) 
+		
 			else:
+				#print(operator)
 				return STLFormula(label=operator, left=self.reconstructFormula(leftChild, model))
+		
 		elif operator in self.binaryOperators:
+			#print(operator)
 			leftChild = getValue(rowId, self.l)
 			rightChild = getValue(rowId, self.r)
 			return STLFormula(label=operator, left=self.reconstructFormula(leftChild,model), right=self.reconstructFormula(rightChild, model))
