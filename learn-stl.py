@@ -21,7 +21,7 @@ class learnSTL:
 		self.signal_sample.readSample(self.signalfile)
 		#self.predicates = 
 		self.size_bound = 5
-		self.fr_bound = 50
+		self.fr_bound = 4
 		self.search_order = [(i,j) for i in range(1, self.fr_bound+1,5) for j in range(1, self.size_bound+1)] #can try out other search orders
 		self.predicates = self.signal_sample.predicates
 		#print(self.search_order)
@@ -75,6 +75,9 @@ class learnSTL:
 		Calculates the uniform time points from interesting time points
 		'''
 		# Assuming that the time points have upto 3 decimals
+		if len(itp) <= 1:
+			return itp
+
 		new_diff = int(1000*(round(itp[1]-itp[0],3)))
 		for i in range(len(itp)-1):
 		
@@ -108,7 +111,7 @@ class learnSTL:
 		Searches for appropriate MTL formulas for the given predicates
 		'''
 		#for fr in [2]:
-		for fr in range(5,self.fr_bound+1,5):
+		for fr in range(1,self.fr_bound+1):
 
 			print('***************Fixing fr to be %d***************'%fr)
 			curr_sample = self.truncate_sample(fr)
@@ -130,7 +133,7 @@ class learnSTL:
 			#print('* Number of new interesting time points: %d'%len(utp))
 			print('* Number of uniformized time points: %d'%len(utp))
 
-			for formula_size in [3]: 
+			for formula_size in range(1,5): 
 			#for formula_size in range(1,self.size_bound+1): 
 				print('---------------Searching for formula size %d---------------'%formula_size)
 				encoding = SMTEncoding(binary_sample, formula_size, alphabet, itp, utp, prop2pred)
@@ -157,7 +160,7 @@ def main():
 
 	parser = argparse.ArgumentParser()
 
-	parser.add_argument('--input_file', '-i', dest='input_file', default = './maritime-case1.signal')
+	parser.add_argument('--input_file', '-i', dest='input_file', default = './robot_signal.signal')
 	parser.add_argument('--timeout', '-t', dest='timeout', default=900, type=int)
 	parser.add_argument('--outputcsv', '-o', dest='csvname', default= './result.csv')
 	parser.add_argument('--verbose', '-v', dest='verbose', default=3, action='count')
