@@ -15,12 +15,13 @@ def convertSignals2Traces(sample, wordsamplefile='example.trace', operators=['F'
 	#end_time = sample.positive[0].sequence[-1].time # all signals end at same time
 	#print(sample.vars)
 
-	print(sample.positive[0])
+	#print(sample.positive[0])
 
 	binary_signals = {}
 	interesting_time_points = {start_time}
 	for i in range(len(sample.vars)):
 		var = sample.vars[i]
+		#print(var)
 		for c in sample.predicates[var]:
 			
 			for signal in sample.positive+sample.negative:
@@ -62,6 +63,7 @@ def convertSignals2Traces(sample, wordsamplefile='example.trace', operators=['F'
 
 
 				binary_signals[(signal,var,c)] = curr_binary_signal
+	
 
 
 	interesting_time_points = sorted(list(interesting_time_points))
@@ -131,13 +133,17 @@ def convertSignals2Traces(sample, wordsamplefile='example.trace', operators=['F'
 		#print(timed_word, len(timed_word.sequence))
 		
 		trace_vector = []
+		
 		for sp in timed_word.sequence:
 			trace_vector.append(tuple(sp.vector))
+
 
 		if label_decider <= num_pos:
 
 			positive_set.add(Trace(vector=trace_vector))
 		else:
+			#print(label_decider)
+			#print(trace_vector)
 			negative_set.add(Trace(vector=trace_vector))
 
 

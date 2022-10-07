@@ -7,8 +7,10 @@ class SMTEncoding:
 	def __init__(self, traces, formula_size, alphabet, itp, utp, prop2pred): 
 		
 		defaultOperators = ['G', 'F', '!', '&', '|', '->']
-		unary = ['G', 'F', '!']	
-		binary = ['&', '|', '->']
+		#unary = ['G','F', '!']	
+		#binary = ['&', '|', '->']
+		unary = ['G']	
+		binary = ['&']
 		
 		#defaultOperators = ['G', 'F']
 		#unary = ['G', 'F']	
@@ -56,8 +58,9 @@ class SMTEncoding:
 		
 
 		self.operatorsAndPropositions = self.listOfOperators + self.listOfPropositions
+		print(self.operatorsAndPropositions)
 		
-		self.x = { (i, o) : Bool('x_%d_%s'%(i,o)) for i in range(self.formula_size) for o in self.operatorsAndPropositions }
+		self.x = { (i, o) : Bool('x_%d_%s'%(i,o)) for i in range(self.formula_size) for o in self.operatorsAndPropositions}
 		
 		self.a = {i: Real('a_%d'%i) for i in range(self.formula_size)}
 	
@@ -65,11 +68,11 @@ class SMTEncoding:
 
 
 		self.l = {(parentOperator, childOperator) : Bool('l_%d_%d'%(parentOperator,childOperator))\
-												 for parentOperator in range(1, self.formula_size)\
-												 for childOperator in range(parentOperator)}
+												 for parentOperator in range(self.formula_size)\
+												 for childOperator in range(parentOperator)} 
 		
 		self.r = {(parentOperator, childOperator) : Bool('r_%d_%d'%(parentOperator,childOperator))\
-												 for parentOperator in range(1, self.formula_size)\
+												 for parentOperator in range(self.formula_size)\
 												 for childOperator in range(parentOperator)}
 
 		self.y = { (i, traceIdx, pos) : Bool('y_%d_%d_%d'%(i,traceIdx,pos))\
@@ -79,6 +82,7 @@ class SMTEncoding:
 		
 		#print('x-vars:',self.x)
 		#print('y-vars',self.y)
+		#print('l-vars:',self.l)
 		self.solver.set()
 
 		# Structural Constraints
@@ -96,7 +100,7 @@ class SMTEncoding:
 			self.solver.add(self.y[(self.formula_size - 1, traceIdx, 0)])
 					
 
-		for traceIdx in range(len(self.traces.negative), len(self.traces.positive+self.traces.negative)):
+		for traceIdx in range(len(self.traces.positive), len(self.traces.positive+self.traces.negative)):
 			self.solver.add(Not(self.y[(self.formula_size - 1, traceIdx, 0)]))
 
 		
@@ -108,18 +112,20 @@ class SMTEncoding:
 
 			if 'G' in self.listOfOperators:
 				  #globally				
-				self.solver.assert_and_track(Implies(self.x[(i, 'G')], (self.a[i] < self.b[i])),\
+				self.solver.assert_and_track(Implies(self.x[(i, 'G')], (self.a[i] <= self.b[i])),\
 											'temporal bounds of globally operator for node %d'%i)
 
 				self.solver.assert_and_track(Implies(self.x[(i, 'G')], Or([self.a[i] == self.utp[tp] for tp in range(len(self.utp))])),\
 											'temporal lower bounds values of globally operator for node %d'%i)
  
-				self.solver.assert_and_track(Implies(self.x[(i, 'G')], Or([self.b[i] == self.utp[tp] for tp in range(len(self.utp))])),\
+				#self.solver.assert_and_track(Implies(self.x[(i, 'G')], Or([self.b[i] == self.utp[tp] for tp in range(len(self.utp))])),\
+				#							'temporal upper bounds values of globally operator for node %d'%i)
+				self.solver.assert_and_track(Implies(self.x[(i, 'G')], Or([self.b[i] == 3])),\
 											'temporal upper bounds values of globally operator for node %d'%i)
  
 			if 'F' in self.listOfOperators:				  
 				  #finally				
-				self.solver.assert_and_track(Implies(self.x[(i, 'F')], (self.a[i] < self.b[i])),\
+				self.solver.assert_and_track(Implies(self.x[(i, 'F')], (self.a[i] <= self.b[i])),\
 											   'temporal bounds of finally operator for node %d'%i)
 				
 				self.solver.assert_and_track(Implies(self.x[(i, 'F')], Or([self.a[i] == self.utp[tp] for tp in range(len(self.utp))])),\
@@ -373,7 +379,6 @@ class SMTEncoding:
 														   ),\
 												   'semantics of negation for trace %d and node %d' % (traceIdx, i)\
 												   )
-				
 				if 'G' in self.listOfOperators:
 					#globally				
 					self.solver.assert_and_track(Implies(self.x[(i, 'G')],\
@@ -417,6 +422,7 @@ class SMTEncoding:
 		return self.reconstructFormula(self.formula_size-1, model)
 		
 	def reconstructFormula(self, rowId, model):
+		#print(model)
 		def getValue(row, vars):
 			tt = [k[1] for k in vars if k[0] == row and model[vars[k]] == True]
 			if len(tt) > 1:

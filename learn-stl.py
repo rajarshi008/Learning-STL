@@ -107,17 +107,18 @@ class learnSTL:
 
 
 	def search(self):
+		found_formula_size= 5
 		'''
 		Searches for appropriate MTL formulas for the given predicates
 		'''
-		#for fr in [2]:
-		for fr in range(1,self.fr_bound+1):
+		for fr in [4]:
+		#for fr in range(1,self.fr_bound+1):
 
 			print('***************Fixing fr to be %d***************'%fr)
 			curr_sample = self.truncate_sample(fr)
 			binary_sample, alphabet, prop2pred, itp = convertSignals2Traces(curr_sample) # possible optimization to add only new points
 			#print(type(binary_sample.positive[0]))
-			#binary_sample.writeToFile('dummy_%d.trace'%fr)
+			binary_sample.writeToFile('dumm_%d.trace'%fr)
 			print(itp)
 
 			utp = self.calcUTP(itp)
@@ -125,7 +126,7 @@ class learnSTL:
 			#utp = self.calcNewTP(itp)
 			
 			#print(itp)
-			#print(utp)
+			print(utp)
 			#print(utp1)
 
 
@@ -133,7 +134,8 @@ class learnSTL:
 			#print('* Number of new interesting time points: %d'%len(utp))
 			print('* Number of uniformized time points: %d'%len(utp))
 
-			for formula_size in range(1,5): 
+			for formula_size in [4]:
+			#for formula_size in range(1,found_formula_size+1): 
 			#for formula_size in range(1,self.size_bound+1): 
 				print('---------------Searching for formula size %d---------------'%formula_size)
 				encoding = SMTEncoding(binary_sample, formula_size, alphabet, itp, utp, prop2pred)
@@ -142,6 +144,9 @@ class learnSTL:
 				solverRes = encoding.solver.check()
 				#t_solve=time.time()-t_solve
 
+				checking= encoding.solver.unsat_core()
+				#print(checking)
+
 				#Print this to see constraint creation time and constraint solving time separately
 				#print(depth, regexDepth)
 				#print((i,j), "Creating time:", t_create, "Solving time:", t_solve)
@@ -149,8 +154,17 @@ class learnSTL:
 
 				if solverRes == sat:
 					solverModel = encoding.solver.model()
+					#print(solverModel.eval(self.x[2,'G']))
+					for t in solverModel.decls():
+  						if is_true(solverModel[t]):		
+  							print(type(t),t)
+  						
 					formula = encoding.reconstructWholeFormula(solverModel)
+					print(formula.label)
 					print('The STL formula:', formula.prettyPrint())
+					#print(formula)
+					#found_formula_size= formula.size
+					print(found_formula_size)
 					break
 
 
