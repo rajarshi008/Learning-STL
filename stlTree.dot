@@ -1,0 +1,15 @@
+digraph stlTree {
+	"Content_3"[label="Content"];
+	"Until_3"[label="Until [3]"];
+	"Content_3" -> "Until_3";
+	"IntValue_6"[label="0"];
+	"Until_3" -> "IntValue_6";
+	"IntValue_7"[label="1"];
+	"Until_3" -> "IntValue_7";
+	"ComparisonOperator_3"[label="ComparisonOperator [3]: >"];
+	"Until_3" -> "ComparisonOperator_3";
+	"Signal_3"[label="Signal: x"];
+	"ComparisonOperator_3" -> "Signal_3";
+	"FloatValue_3"[label="2.0"];
+	"ComparisonOperator_3" -> "FloatValue_3";
+}

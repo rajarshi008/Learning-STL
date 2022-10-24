@@ -7,11 +7,12 @@ class SMTEncoding:
 	def __init__(self, traces, formula_size, alphabet, itp, utp, prop2pred): 
 		
 		defaultOperators = ['G', 'F', '!', '&', '|', '->']
-		#unary = ['G','F', '!']	
-		#binary = ['&', '|', '->']
-		unary = ['G']	
-		binary = ['&']
+		unary = ['G','F', '!']	
+		binary = ['&', '|', '->']
 		
+
+		#unary = ['G']	
+		#binary = ['&']
 		#defaultOperators = ['G', 'F']
 		#unary = ['G', 'F']	
 		#binary = []
@@ -68,11 +69,11 @@ class SMTEncoding:
 
 
 		self.l = {(parentOperator, childOperator) : Bool('l_%d_%d'%(parentOperator,childOperator))\
-												 for parentOperator in range(self.formula_size)\
+												 for parentOperator in range(1,self.formula_size)\
 												 for childOperator in range(parentOperator)} 
 		
 		self.r = {(parentOperator, childOperator) : Bool('r_%d_%d'%(parentOperator,childOperator))\
-												 for parentOperator in range(self.formula_size)\
+												 for parentOperator in range(1,self.formula_size)\
 												 for childOperator in range(parentOperator)}
 
 		self.y = { (i, traceIdx, pos) : Bool('y_%d_%d_%d'%(i,traceIdx,pos))\
@@ -118,10 +119,10 @@ class SMTEncoding:
 				self.solver.assert_and_track(Implies(self.x[(i, 'G')], Or([self.a[i] == self.utp[tp] for tp in range(len(self.utp))])),\
 											'temporal lower bounds values of globally operator for node %d'%i)
  
-				#self.solver.assert_and_track(Implies(self.x[(i, 'G')], Or([self.b[i] == self.utp[tp] for tp in range(len(self.utp))])),\
-				#							'temporal upper bounds values of globally operator for node %d'%i)
-				self.solver.assert_and_track(Implies(self.x[(i, 'G')], Or([self.b[i] == 3])),\
+				self.solver.assert_and_track(Implies(self.x[(i, 'G')], Or([self.b[i] == self.utp[tp] for tp in range(len(self.utp))])),\
 											'temporal upper bounds values of globally operator for node %d'%i)
+				#self.solver.assert_and_track(Implies(self.x[(i, 'G')], Or([self.b[i] == 3])),\
+				#							'temporal upper bounds values of globally operator for node %d'%i)
  
 			if 'F' in self.listOfOperators:				  
 				  #finally				
@@ -419,10 +420,16 @@ class SMTEncoding:
 										
 		
 	def reconstructWholeFormula(self, model):
+
+		
 		return self.reconstructFormula(self.formula_size-1, model)
 		
 	def reconstructFormula(self, rowId, model):
-		#print(model)
+		
+
+		
+
+
 		def getValue(row, vars):
 			tt = [k[1] for k in vars if k[0] == row and model[vars[k]] == True]
 			if len(tt) > 1:
