@@ -1,15 +1,23 @@
 digraph stlTree {
-	"Content_3"[label="Content"];
-	"Until_3"[label="Until [3]"];
-	"Content_3" -> "Until_3";
-	"IntValue_6"[label="0"];
-	"Until_3" -> "IntValue_6";
-	"IntValue_7"[label="1"];
-	"Until_3" -> "IntValue_7";
-	"ComparisonOperator_3"[label="ComparisonOperator [3]: >"];
-	"Until_3" -> "ComparisonOperator_3";
-	"Signal_3"[label="Signal: x"];
-	"ComparisonOperator_3" -> "Signal_3";
+	"Content_0"[label="Content"];
+	"And_0"[label="And [0]"];
+	"Content_0" -> "And_0";
+	"ComparisonOperator_0"[label="ComparisonOperator [0]: >"];
+	"And_0" -> "ComparisonOperator_0";
+	"Signal_0"[label="Signal: x"];
+	"ComparisonOperator_0" -> "Signal_0";
+	"FloatValue_0"[label="4.0"];
+	"ComparisonOperator_0" -> "FloatValue_0";
+	"Until_0"[label="Until [0]"];
+	"And_0" -> "Until_0";
+	"FloatValue_1"[label="1.8"];
+	"Until_0" -> "FloatValue_1";
+	"FloatValue_2"[label="2.4"];
+	"Until_0" -> "FloatValue_2";
+	"ComparisonOperator_1"[label="ComparisonOperator [1]: >"];
+	"Until_0" -> "ComparisonOperator_1";
+	"Signal_1"[label="Signal: y"];
+	"ComparisonOperator_1" -> "Signal_1";
 	"FloatValue_3"[label="2.0"];
-	"ComparisonOperator_3" -> "FloatValue_3";
+	"ComparisonOperator_1" -> "FloatValue_3";
 }

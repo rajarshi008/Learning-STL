@@ -253,6 +253,23 @@ class STLFormula(SimpleTree):
 		self.label = label
 		self.left = left
 		self.right = right
+
+	def treeSize(self):
+		if self.size == None:
+			if self.left == None and self.right == None:
+				if self.label == 'true' or self.label == 'false':
+					self.size = 0
+				else:
+					self.size = 1
+			leftSize=0
+			rightSize=0
+			if self.left != None:
+				leftSize = self.left.treeSize()
+			if self.right != None:
+				rightSize= self.right.treeSize()
+			self.size = 1 + leftSize + rightSize
+
+		return self.size
 		
 	def _isLeaf(self):
 
@@ -289,11 +306,17 @@ class STLFormula(SimpleTree):
 
 		else:
 
+
+			lb_frac = self.label[1][0].as_fraction()
+			ub_frac = self.label[1][1].as_fraction()
+			lower_bound = float(lb_frac.numerator)/float(lb_frac.denominator)
+			upper_bound = float(ub_frac.numerator)/float(ub_frac.denominator)
+
 			if operator in unary_operators:
-				
-				return lb + operator + '[' + str(self.label[1][0]) + "," + str(self.label[1][1]) + "]"+ self.left.prettyPrint() + rb
+
+				return lb + operator + '[' + str(lower_bound) + "," + str(upper_bound) + "]"+ self.left.prettyPrint() + rb
 			
 			else:
-				#print('adbhut', operator)
-				return lb + self.left.prettyPrint() +" "+  operator + '[' + str(self.label[1][0]) + "," + str(self.label[1][1]) + "]"+ " " + self.right.prettyPrint() + rb
+				
+				return lb + self.left.prettyPrint() +" "+  operator + '[' + str(lower_bound) + "," + str(upper_bound) + "]"+ " " + self.right.prettyPrint() + rb
 		

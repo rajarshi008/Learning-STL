@@ -4,6 +4,7 @@ import logging
 import os,csv, shutil
 import argparse
 import math
+import rtamt
 from preprocessing import convertSignals2Traces
 from smtencoding import SMTEncoding
 from signaltraces import Sample, Trace, Signal
@@ -14,7 +15,7 @@ from main import genBooleanSat
 
 class learnSTL:
 
-	def __init__(self, signalfile, checking_dir=None):
+	def __init__(self, signalfile):
 
 
 		self.signalfile = signalfile
@@ -27,52 +28,6 @@ class learnSTL:
 		self.search_order = [(i,j) for i in range(1, self.fr_bound+1,5) for j in range(1, self.size_bound+1)] #can try out other search orders
 		self.predicates = self.signal_sample.predicates
 		#print(self.search_order)
-		self.checking_dir = checking_dir
-
-
-		if self.checking_dir != None:
-
-			if os.path.exists(self.checking_dir):
-   				shutil.rmtree(self.checking_dir)
-   				os.makedirs(self.checking_dir)
-
-			for i,signal in enumerate(self.signal_sample.positive):
-				
-				signal_csv = []
-
-				filename = self.checking_dir+'/positive'+str(i)+'.csv'
-				with open(filename, 'w') as file:
-
-					header = []
-					writer = csv.writer(file)
-					for v in self.signal_sample.vars:
-						header.extend([v,v+'_t'])
-					writer.writerow(header)
-
-					for t in signal.sequence:
-						info = []
-						for j in range(len(self.signal_sample.vars)):
-							info.extend([t.vector[j], t.time]) 
-						writer.writerow(info)
-					
-
-			for i,signal in enumerate(self.signal_sample.negative):
-				
-				signal_csv = []
-				filename = self.checking_dir+'/negative'+str(i)+'.csv'
-				with open(filename, 'w') as file:
-
-					writer = csv.writer(file)
-					header = []
-					for v in self.signal_sample.vars:
-						header.extend([v,v+'_t'])
-					writer.writerow(header)
-
-					for t in signal.sequence:
-						info = []
-						for j in range(len(self.signal_sample.vars)):
-							info.extend([t.vector[j], t.time]) 
-						writer.writerow(info)
 					
 
 	def interesting_pred(self):
@@ -155,35 +110,34 @@ class learnSTL:
 
 
 	def search(self):
+
 		found_formula_size= 5
+		formula_list = []
 		'''
 		Searches for appropriate MTL formulas for the given predicates
 		'''
-		for fr in [1]:
-		#for fr in range(1,self.fr_bound+1):
+		#for fr in [4]:
+		for fr in range(1,self.fr_bound+1):
 
 			print('***************Fixing fr to be %d***************'%fr)
 			curr_sample = self.truncate_sample(fr)
 			binary_sample, alphabet, prop2pred, itp = convertSignals2Traces(curr_sample) # possible optimization to add only new points
 			#print(type(binary_sample.positive[0]))
-			binary_sample.writeToFile('dumm_%d.trace'%fr)
+			binary_sample.writeToFile('dummy_%d.trace'%fr)
 			print(itp)
 
 			utp = self.calcUTP(itp)
 			
 			#utp = self.calcNewTP(itp)
-			
-			#print(itp)
+	
 			print(utp)
-			#print(utp1)
-
 
 			print('* Number of interesting time points: %d'%len(itp))
 			#print('* Number of new interesting time points: %d'%len(utp))
 			print('* Number of uniformized time points: %d'%len(utp))
 
-			for formula_size in [2]:
-			#for formula_size in range(1,found_formula_size+1): 
+			#for formula_size in [4]:
+			for formula_size in range(1,found_formula_size): 
 			#for formula_size in range(1,self.size_bound+1): 
 				print('---------------Searching for formula size %d---------------'%formula_size)
 				encoding = SMTEncoding(binary_sample, formula_size, alphabet, itp, utp, prop2pred)
@@ -208,14 +162,15 @@ class learnSTL:
   						if is_true(solverModel[t]):		
   							print(type(t),t)
   					'''
-
 					formula = encoding.reconstructWholeFormula(solverModel)
-					self.check_consistency(formula)
-					print(formula.prettyPrint())
-					#found_formula_size= formula.size
-					print(found_formula_size)
+					formula_list.append(formula)
+					found_formula_size = formula.treeSize()
+					print('Found formula %s of size %d'%(formula.prettyPrint(), formula.size))
 					break
 
+			for formula in formula_list:
+				print(formula.prettyPrint())
+				self.check_consistency(formula)
 
 
 	def check_consistency(self, formula):
@@ -223,30 +178,38 @@ class learnSTL:
 		formula_str = formula.prettyPrint()
 
 		#convert F, G, ! to <>, [], -
-		formula_str = formula_str.replace('[','{')
-		formula_str = formula_str.replace(']','}')
-		formula_str = formula_str.replace('F', '<>')
-		formula_str = formula_str.replace('G', '[]')
-		formula_str = formula_str.replace('!', '-')
+		formula_str = formula_str.replace('U', 'until')
+		formula_str = formula_str.replace('F', 'eventually')
+		formula_str = formula_str.replace('G', 'always')
+		formula_str = formula_str.replace('!', 'not')
 		
-		formulafile = self.checking_dir + '/formula.stl'
-		with open(formulafile, 'w') as file:
-			file.write(formula_str)
+		spec = rtamt.STLDenseTimeSpecification()
+		spec.name = 'offline monitor'
+		spec.spec = formula_str
+		for var in self.signal_sample.vars: 
+			spec.declare_var(var, 'float')
+		spec.parse()
 
 		for i,signal in enumerate(self.signal_sample.positive):
-				
-			filename = self.checking_dir+'/positive'+str(i)+'.csv'
-			print(filename)
-			print(genBooleanSat(formulafile=formulafile, signalfile=filename, semantics='boolean', algorithm='efficient'))
+			var_vals = {}
+			for v in range(len(self.signal_sample.vars)):
+				var_vals[v] = [[t.time, t.vector[v]] for t in signal.sequence]
 
+			tuple_arg = [[self.signal_sample.vars[v], var_vals[v]] for v in range(len(self.signal_sample.vars))]
+
+			rob = spec.evaluate(*tuple_arg)
+			print(rob)
+		
 		for i,signal in enumerate(self.signal_sample.negative):
+			var_vals = {}
+			for v in range(len(self.signal_sample.vars)):
+				var_vals[v] = [[t.time, t.vector[v]] for t in signal.sequence]
+
+			tuple_arg = [[self.signal_sample.vars[v], var_vals[v]] for v in range(len(self.signal_sample.vars))]
+
+			rob = spec.evaluate(*tuple_arg)
+			print(rob)
 			
-			filename = self.checking_dir+'/negative'+str(i)+'.csv'
-			print(filename)
-			print(genBooleanSat(formulafile=formulafile, signalfile=filename, semantics='boolean', algorithm='efficient'))
-	
-
-
 
 
 
@@ -254,7 +217,7 @@ def main():
 
 	parser = argparse.ArgumentParser()
 
-	parser.add_argument('--input_file', '-i', dest='input_file', default = './simple1.signal')
+	parser.add_argument('--input_file', '-i', dest='input_file', default = './robot_signal.signal')
 	parser.add_argument('--timeout', '-t', dest='timeout', default=900, type=int)
 	parser.add_argument('--outputcsv', '-o', dest='csvname', default= './result.csv')
 	parser.add_argument('--verbose', '-v', dest='verbose', default=3, action='count')
@@ -263,7 +226,7 @@ def main():
 	input_file = args.input_file
 	timeout = float(args.timeout)
 
-	learner = learnSTL(signalfile=input_file,checking_dir='check')
+	learner = learnSTL(signalfile=input_file)
 	learner.search()
 
 
