@@ -225,12 +225,7 @@ class SMTEncoding:
 
 		
 		#ensuring interval bounds are from either itvs1 or itvs2
-		self.solver.add(num_itv1==5)
-		self.solver.add(num_itv2==5)
-
-		
-		
-		self.solver.add(And(1<new_num_itv, new_num_itv<=num_itv1+1))
+		self.solver.add(And(1<=new_num_itv, new_num_itv<=num_itv1+1))
 		self.solver.add(And([Implies(i<= new_num_itv-1, Or([ Or(or_itvs[i][0]==itvs1[j][0], or_itvs[i][0]==itvs2[j][0]) for j in range(len(itvs1))])) for i in range(len(itvs1))]))
 		self.solver.add(And([Implies(i<= new_num_itv-1, Or([ Or(or_itvs[i][1]==itvs1[j][1], or_itvs[i][1]==itvs2[j][1]) for j in range(len(itvs1))])) for i in range(len(itvs1))]))
 		
@@ -244,28 +239,38 @@ class SMTEncoding:
 								And([Implies(k+1<=num_itv2, Not(And(itvs2[k][0]<itvs1[j][0], itvs1[j][0]<=itvs2[k][1]))) for k in range(len(itvs2))])) \
 								for j in range(len(itvs1))]) \
 								for i in range(len(itvs1))]))
+		self.solver.add(And([Implies(And([i+1<=num_itv1]+[itvs1[i][0] != or_itvs[j][0] for j in range(len(or_itvs))]),
+											Or([And(itvs2[k][0]<=itvs1[i][0], itvs1[i][0]<=itvs2[k][1]) for k in range(len(itvs1))])) for i in range(len(itvs2))]))
 		
 		self.solver.add(And([And([Implies(And(j+1<=num_itv1, or_itvs[i][1] == itvs1[j][1]),\
 								And([Implies(k+1<=num_itv2, Not(And(itvs2[k][0]<=itvs1[j][1], itvs1[j][1]<itvs2[k][1]))) for k in range(len(itvs2))])) \
 								for j in range(len(itvs1))]) \
 								for i in range(len(itvs1))]))
+		self.solver.add(And([Implies(And([i+1<=num_itv1]+[itvs1[i][1] != or_itvs[j][1] for j in range(len(or_itvs))]),
+											Or([And(itvs2[k][0]<=itvs1[i][1], itvs1[i][1]<=itvs2[k][1]) for k in range(len(itvs1))])) for i in range(len(itvs2))]))
 
 		self.solver.add(And([And([Implies(And(j+1<=num_itv2, or_itvs[i][0] == itvs2[j][0]),\
 								And([Implies(k+1<=num_itv1, Not(And(itvs1[k][0]<itvs2[j][0], itvs2[j][0]<=itvs1[k][1]))) for k in range(len(itvs2))])) \
 								for j in range(len(itvs2))]) \
 								for i in range(len(itvs2))]))
+		self.solver.add(And([Implies(And([i+1<=num_itv2]+[itvs2[i][0] != or_itvs[j][0] for j in range(len(or_itvs))]),
+											Or([And(itvs1[k][0]<=itvs2[i][0], itvs2[i][0]<=itvs1[k][1]) for k in range(len(itvs1))])) for i in range(len(itvs2))]))
+
+
 		self.solver.add(And([And([Implies(And(j+1<=num_itv2, or_itvs[i][1] == itvs2[j][1]),\
 								And([Implies(k+1<=num_itv1, Not(And(itvs1[k][0]<=itvs2[j][1], itvs2[j][1]<itvs1[k][1]))) for k in range(len(itvs2))])) \
 								for j in range(len(itvs2))]) \
 								for i in range(len(itvs2))]))
+		self.solver.add(And([Implies(And([i+1<=num_itv2]+[itvs2[i][1] != or_itvs[j][1] for j in range(len(or_itvs))]),
+											Or([And(itvs1[k][0]<=itvs2[i][1], itvs2[i][1]<=itvs1[k][1]) for k in range(len(itvs1))])) for i in range(len(itvs2))]))
 
 		#self.solver.add(And([Implies(Not())]))
 		
 		
 	def checking(self):
 
-		actual_itv1 = [(0,1),(2,5),(7,10),(11,15),(16,17)]
-		actual_itv2 = [(1,4),(6,11),(12,15),(17,18),(19,20)]   
+		actual_itv1 = [(0,1),(2,5),(7,10),(11,15),(16,17),(20,20)]
+		actual_itv2 = [(1,4),(6,11),(12,15),(17,18),(20,20),(20,20)]
 
 		#[(0,5), (6,15), (16,18), (19,20)]
 
@@ -280,8 +285,8 @@ class SMTEncoding:
 
 
 		
-		self.solver.add(And([And(itv1[i][0]==actual_itv1[i][0], itv1[i][1]==actual_itv1[i][1]) for i in range(len(actual_itv1))]))
-		self.solver.add(And([And(itv2[i][0]==actual_itv2[i][0], itv2[i][1]==actual_itv2[i][1]) for i in range(len(actual_itv1))]))
+		self.solver.add(And([And(itv1[i][0]==actual_itv1[i][0], itv1[i][1]==actual_itv1[i][1]) for i in range(len(actual_itv1))]+[num_itv1==5]))
+		self.solver.add(And([And(itv2[i][0]==actual_itv2[i][0], itv2[i][1]==actual_itv2[i][1]) for i in range(len(actual_itv1))]+[num_itv2==4]))
 
 		self.ensureProperIntervals(itv_new, 20)
 		self.or_itv(itv1, itv2, itv_new, num_itv1, num_itv2, new_num_itv, 20)
