@@ -264,18 +264,40 @@ class SMTEncoding:
 		self.solver.add(And([Implies(And([i+1<=num_itv2]+[itvs2[i][1] != or_itvs[j][1] for j in range(len(or_itvs))]),
 											Or([And(itvs1[k][0]<=itvs2[i][1], itvs2[i][1]<=itvs1[k][1]) for k in range(len(itvs1))])) for i in range(len(itvs2))]))
 
-		#self.solver.add(And([Implies(Not())]))
+		
+	def F_itv(self, itvs, F_itvs, num_itv,new_num_itv, end_time):
+
+
+		#ensuring interval bounds are from itvs
+		self.solver.add(And(1<=new_num_itv, new_num_itv<=num_itv+1))
+		self.solver.add(And([Implies(i<= new_num_itv-1, Or([F_itvs[i][0]==itvs[j][0] for j in range(len(itvs))])) for i in range(len(itvs))]))
+		self.solver.add(And([Implies(i<= new_num_itv-1, Or([F_itvs[i][1]==itvs[j][1] for j in range(len(itvs))])) for i in range(len(itvs))]))
+		self.solver.add(And([Implies(i <= new_num_itv-1, F_itvs[i][0] < F_itvs[i][1]) for i in range(len(itvs))]))
+		self.solver.add(And([Implies(i > new_num_itv-1, And(F_itvs[i][0]==end_time, F_itvs[i][1]==end_time)) for i in range(len(itvs))]))
+
+
+		#ensuring all intervals are included
+
+		self.solver.add(And([Or([And(F_itvs[j][0] <= itvs[i][0], itvs[i][1]<= F_itvs[j][1]) for j in range(len(F_itvs))]) for i in range(len(itvs))]))
+
+		#ensuring no extra variables are included
+
+		self.solver.add(And([Implies(itvs[i][1] < itvs[j][0], Implies(And([Or((itvs[i][1]+itvs[j][0])/2<itvs[k][0],(itvs[i][1]+itvs[j][0])/2>itvs[k][1]) for k in range(len(itvs))]),\
+								And([Or((itvs[i][1]+itvs[j][0])/2<F_itvs[l][0], (itvs[i][1]+itvs[j][0])/2>F_itvs[l][1]) for l in range(len(F_itvs))])))\
+								for i in range(len(itvs)) for j in range(len(itvs))]))
+
+
 		
 		
 	def checking(self):
 
-		actual_itv1 = [(0,1),(2,5),(7,10),(11,15),(16,17),(20,20)]
-		actual_itv2 = [(1,4),(6,11),(12,15),(17,18),(20,20),(20,20)]
+		actual_itv1 = [(0,6),(2,5),(4,13),(11,12),(16,17),(20,20)]
+		#actual_itv2 = [(1,4),(6,11),(12,15),(17,18),(20,20),(20,20)]
 
-		#[(0,5), (6,15), (16,18), (19,20)]
+		#[(0,17), (20,20)]
 
 		itv1 = {i:(Real('itv1_%d_0'%i), Real('itv1_%d_1'%i)) for i in range(len(actual_itv1))}
-		itv2 = {i:(Real('itv2_%d_0'%i), Real('itv2_%d_1'%i)) for i in range(len(actual_itv2))}
+		#itv2 = {i:(Real('itv2_%d_0'%i), Real('itv2_%d_1'%i)) for i in range(len(actual_itv2))}
 		
 		itv_new = {i:(Real('itv_new_%d_0'%i), Real('itv_new_%d_1'%i)) for i in range(len(actual_itv1))}
 
@@ -286,11 +308,11 @@ class SMTEncoding:
 
 		
 		self.solver.add(And([And(itv1[i][0]==actual_itv1[i][0], itv1[i][1]==actual_itv1[i][1]) for i in range(len(actual_itv1))]+[num_itv1==5]))
-		self.solver.add(And([And(itv2[i][0]==actual_itv2[i][0], itv2[i][1]==actual_itv2[i][1]) for i in range(len(actual_itv1))]+[num_itv2==4]))
+		#self.solver.add(And([And(itv2[i][0]==actual_itv2[i][0], itv2[i][1]==actual_itv2[i][1]) for i in range(len(actual_itv1))]+[num_itv2==4]))
 
 		self.ensureProperIntervals(itv_new, 20)
-		self.or_itv(itv1, itv2, itv_new, num_itv1, num_itv2, new_num_itv, 20)
-
+		#self.or_itv(itv1, itv2, itv_new, num_itv1, num_itv2, new_num_itv, 20)
+		self.F_itv(itv1, itv_new, num_itv1, new_num_itv, 20)
 
 		solverRes = self.solver.check()
 		print(solverRes)
@@ -299,7 +321,7 @@ class SMTEncoding:
 			solverModel = self.solver.model()
 			for i in range(len(actual_itv1)):
 				print(i, (solverModel[itv_new[i][0]],solverModel[itv_new[i][1]]))
-			print(solverModel[new_num_itv], solverModel[num_itv1], solverModel[num_itv2])
+			print(solverModel[new_num_itv], solverModel[num_itv1])
 
 def main():
 
