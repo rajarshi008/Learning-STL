@@ -37,6 +37,246 @@ class SMTEncoding:
 			self.even_range = int((self.max_intervals)/2)
 			self.odd_range = int((self.max_intervals)/2)
 
+# interval = {i:(Real('l_i'), Real('r_i') for i in range()}
+
+
+	def find_sol(self):
+
+		solverRes = self.solver.check()
+
+		if solverRes == sat:
+			solverModel = self.solver.model()
+			print('SAT')
+			for k in self.t:
+				print('t_%d'%k, solverModel[self.t[k]])
+			print('Num TP', solverModel[self.num_tp])
+		else:
+			checking= self.solver.unsat_core()
+			print(checking)
+			print('UNSAT')
+	
+
+	def ensureProperIntervals(self, itvs, end_time):
+
+		cons1 = And([itvs[i][0]<=itvs[i][1] for i in range(len(itvs))])
+		#self.solver.add(cons1)
+
+		cons2 = And([itvs[i][1]<=itvs[i+1][0] for i in range(len(itvs)-1)])
+		#self.solver.add(cons2)
+
+		cons3 = And([And(0<=itvs[i][s], itvs[i][s]<=end_time) for s in [0,1] for i in range(len(itvs))])
+		#self.solver.add(cons3)
+
+		cons = And([cons1, cons2, cons3])
+
+		return cons
+
+	########################## Operator Not ##########################
+	def not_itv(self, itvs, neg_itvs, num_itv, new_num_itv, end_time):
+
+		'''
+		case1 = And([And(neg_itvs[0][0]==0, neg_itvs[0][1]==itvs[0][0])]+\
+						[Implies(i<=num_itv,And(neg_itvs[i][0] == itvs[i-1][1], neg_itvs[i][1] == itvs[i][0])) for i in range(1,len(itvs))])
+		case2 = And([Implies(i<=num_itv,And(neg_itvs[i][0]==itvs[i][1], neg_itvs[i][1]==itvs[i+1][0])) for i in range(len(itvs)-1)])
+		'''
+		case1 = And([And(neg_itvs[0][0]==0, neg_itvs[0][1]==itvs[0][0])]+\
+						[And(neg_itvs[i][0] == itvs[i-1][1], neg_itvs[i][1] == itvs[i][0]) for i in range(1,len(itvs))])
+		case2 = And([And(neg_itvs[i][0]==itvs[i][1], neg_itvs[i][1]==itvs[i+1][0]) for i in range(len(itvs)-1)])
+
+		cons1 = If(itvs[0][0] != 0, case1, case2)
+		
+		cons2 = And([Implies(And(neg_itvs[i][0]==end_time, neg_itvs[i-1][0]!=end_time), new_num_itv==i) for i in range(1,len(itvs))])
+
+		cons3 = And([Implies(i >= new_num_itv, And(neg_itvs[i][0]==end_time, neg_itvs[i][1]==end_time)) for i in range(len(itvs))])
+
+		cons = And([cons1, cons2])
+
+		return cons
+	
+	########################## Operator Or ##########################	
+	def or_itv(self, itvs1, itvs2, or_itvs, num_itv1, num_itv2, new_num_itv, end_time):
+		
+
+		#ensuring interval bounds are from either itvs1 or itvs2
+		cons1 = And(1<=new_num_itv, new_num_itv<=num_itv1+1)
+		cons2 = And([Implies(i<= new_num_itv-1, Or([ Or(or_itvs[i][0]==itvs1[j][0], or_itvs[i][0]==itvs2[j][0]) for j in range(len(itvs1))])) for i in range(len(itvs1))])
+		cons3 = And([Implies(i<= new_num_itv-1, Or([ Or(or_itvs[i][1]==itvs1[j][1], or_itvs[i][1]==itvs2[j][1]) for j in range(len(itvs1))])) for i in range(len(itvs1))])
+		
+
+		cons4 = And([Implies(i <= new_num_itv-1, or_itvs[i][0] < or_itvs[i][1]) for i in range(len(itvs1))])
+		cons5 = And([Implies(i > new_num_itv-1, And(or_itvs[i][0]==end_time, or_itvs[i][1]==end_time)) for i in range(len(itvs1))])
+
+		
+		#ensuring that intervals cannot be extended
+		cons6 = And([And([Implies(And(j+1<=num_itv1, or_itvs[i][0] == itvs1[j][0]),\
+								And([Implies(k+1<=num_itv2, Not(And(itvs2[k][0]<itvs1[j][0], itvs1[j][0]<=itvs2[k][1]))) for k in range(len(itvs2))])) \
+								for j in range(len(itvs1))]) \
+								for i in range(len(itvs1))])
+		cons7 = And([Implies(And([i+1<=num_itv1]+[itvs1[i][0] != or_itvs[j][0] for j in range(len(or_itvs))]),
+											Or([And(itvs2[k][0]<itvs1[i][0], itvs1[i][0]<=itvs2[k][1]) for k in range(len(itvs1))])) for i in range(len(itvs2))])
+		
+		cons8 = And([And([Implies(And(j+1<=num_itv1, or_itvs[i][1] == itvs1[j][1]),\
+								And([Implies(k+1<=num_itv2, Not(And(itvs2[k][0]<=itvs1[j][1], itvs1[j][1]<itvs2[k][1]))) for k in range(len(itvs2))])) \
+								for j in range(len(itvs1))]) \
+								for i in range(len(itvs1))])
+		cons9 = And([Implies(And([i+1<=num_itv1]+[itvs1[i][1] != or_itvs[j][1] for j in range(len(or_itvs))]),
+											Or([And(itvs2[k][0]<=itvs1[i][1], itvs1[i][1]<itvs2[k][1]) for k in range(len(itvs1))])) for i in range(len(itvs2))])
+
+		cons10 = And([And([Implies(And(j+1<=num_itv2, or_itvs[i][0] == itvs2[j][0]),\
+								And([Implies(k+1<=num_itv1, Not(And(itvs1[k][0]<itvs2[j][0], itvs2[j][0]<=itvs1[k][1]))) for k in range(len(itvs2))])) \
+								for j in range(len(itvs2))]) \
+								for i in range(len(itvs2))])
+		cons11 = And([Implies(And([i+1<=num_itv2]+[itvs2[i][0] != or_itvs[j][0] for j in range(len(or_itvs))]),
+											Or([And(itvs1[k][0]<itvs2[i][0], itvs2[i][0]<=itvs1[k][1]) for k in range(len(itvs1))])) for i in range(len(itvs2))])
+
+
+		cons12 = And([And([Implies(And(j+1<=num_itv2, or_itvs[i][1] == itvs2[j][1]),\
+								And([Implies(k+1<=num_itv1, Not(And(itvs1[k][0]<=itvs2[j][1], itvs2[j][1]<itvs1[k][1]))) for k in range(len(itvs2))])) \
+								for j in range(len(itvs2))]) \
+								for i in range(len(itvs2))])
+		cons13 = And([Implies(And([i+1<=num_itv2]+[itvs2[i][1] != or_itvs[j][1] for j in range(len(or_itvs))]),
+											Or([And(itvs1[k][0]<=itvs2[i][1], itvs2[i][1]<itvs1[k][1]) for k in range(len(itvs1))])) for i in range(len(itvs2))])
+
+		cons = And([cons1, cons2, cons3, cons4, cons5, cons6, cons7, cons8, cons9, cons10, cons11, cons12, cons13])
+
+		return cons
+	
+	########################## Operator And ##########################
+	def and_itv(self, itvs1, itvs2, and_itvs, num_itv1, num_itv2, new_num_itv, end_time):
+
+		neg_itvs1 = {i:(Real('neg_itv1_%d_0'%i), Real('neg_itv1_%d_1'%i)) for i in range(len(itvs1))}
+		neg_itvs2 = {i:(Real('neg_itv2_%d_0'%i), Real('neg_itv2_%d_1'%i)) for i in range(len(itvs1))}
+		neg_num_itvs1 = Int('neg_num_itv_1')
+		neg_num_itvs2 = Int('neg_num_itv_2')
+
+		cons1 = self.not_itv(itvs1, neg_itvs1, num_itv1, neg_num_itvs1, end_time)
+		cons2 = self.not_itv(itvs2, neg_itvs2, num_itv2, neg_num_itvs2, end_time)
+
+		or_itvs = {i:(Real('or_itv_%d_0'%i), Real('or_itv_%d_1'%i)) for i in range(len(itvs1))}
+		or_num_itvs = Int('or_num_itv')
+
+		cons3 = self.or_itv(neg_itvs1, neg_itvs2, or_itvs, neg_num_itvs1, neg_num_itvs2, or_num_itvs, end_time)
+		cons4 = self.not_itv(or_itvs, and_itvs, or_num_itvs, new_num_itv, end_time)
+
+		cons5 = And([self.ensureProperIntervals(neg_itvs1, end_time), \
+			self.ensureProperIntervals(neg_itvs2, end_time), self.ensureProperIntervals(or_itvs, end_time)])
+
+
+		cons = And([cons1, cons2, cons3, cons4, cons5])
+
+		return cons
+
+
+
+
+
+	########################## Operator F ##########################	
+	def F_itv(self, itvs, F_itvs, num_itv, new_num_itv, end_time):
+
+		#ensuring interval bounds are from itvs
+		cons1 = And(1<=new_num_itv, new_num_itv<=num_itv+1)
+		cons2 = And([Implies(i<= new_num_itv-1, Or([F_itvs[i][0]==itvs[j][0] for j in range(len(itvs))])) for i in range(len(itvs))])
+		cons3 = And([Implies(i<= new_num_itv-1, Or([F_itvs[i][1]==itvs[j][1] for j in range(len(itvs))])) for i in range(len(itvs))])
+		cons4 = And([Implies(i <= new_num_itv-1, F_itvs[i][0] < F_itvs[i][1]) for i in range(len(itvs))])
+		cons5 = And([Implies(i > new_num_itv-1, And(F_itvs[i][0]==end_time, F_itvs[i][1]==end_time)) for i in range(len(itvs))])
+
+
+		#ensuring all intervals are included
+		cons6 = And([Or([And(F_itvs[j][0] <= itvs[i][0], itvs[i][1]<= F_itvs[j][1]) for j in range(len(F_itvs))]) for i in range(len(itvs))])
+
+		#ensuring no extra variables are included
+		cons7 = And([Implies(itvs[i][1] < itvs[j][0], Implies(And([Or((itvs[i][1]+itvs[j][0])/2<itvs[k][0],(itvs[i][1]+itvs[j][0])/2>itvs[k][1]) for k in range(len(itvs))]),\
+								And([Or((itvs[i][1]+itvs[j][0])/2<F_itvs[l][0], (itvs[i][1]+itvs[j][0])/2>F_itvs[l][1]) for l in range(len(F_itvs))])))\
+								for i in range(len(itvs)) for j in range(len(itvs))])
+
+		cons = And([cons1, cons2, cons3, cons4, cons5, cons6, cons7])
+
+		return cons
+
+	########################## Operator G ##########################
+	def G_itv(self, itvs, G_itvs, num_itv, new_num_itv, end_time):
+
+		#ensuring interval bounds are from itvs
+		neg_itvs1 = {i:(Real('neg_itv1_%d_0'%i), Real('neg_itv1_%d_1'%i)) for i in range(len(itvs1))}
+		neg_num_itvs1 = Int('neg_num_itv_1')
+		
+		cons1 = self.not_itv(itvs1, neg_itvs1, num_itv1, neg_num_itvs1, end_time)
+		cons2 = self.not_itv(itvs2, neg_itvs2, num_itv2, neg_num_itvs2, end_time)
+
+		or_itvs = {i:(Real('or_itv_%d_0'%i), Real('or_itv_%d_1'%i)) for i in range(len(itvs1))}
+		or_num_itvs = Int('or_num_itv')
+
+		cons3 = self.or_itv(neg_itvs1, neg_itvs2, or_itvs, neg_num_itvs1, neg_num_itvs2, or_num_itvs, end_time)
+		cons4 = self.not_itv(or_itvs, and_itvs, or_num_itvs, new_num_itv, end_time)
+
+		cons5 = And([self.ensureProperIntervals(neg_itvs1, end_time), \
+			self.ensureProperIntervals(neg_itvs2, end_time), self.ensureProperIntervals(or_itvs, end_time)])
+
+
+		cons = And([cons1, cons2, cons3, cons4, cons5])
+
+		return cons  
+
+
+
+
+
+# positive interval [4,7], U [1,2]; phi_2 - [a,b] = [2,6], phi_1 [1,5]; 1 U[a,b] 2 = [2,4]
+		
+	def checking(self):
+
+		#actual_itv1 = [(0,6),(11,12),(16,17),(20,20)]
+		actual_itv1 = [(0,6),(11,12),(16,17),(20,20)]
+		actual_itv2 = [(1,4),(11,15),(20,20),(20,20)]
+
+		#[(13,14), (15.1,15.6), (7,15), (16,20)]
+		#[(0,17), (20,20)]
+
+		itv1 = {i:(Real('itv1_%d_0'%i), Real('itv1_%d_1'%i)) for i in range(len(actual_itv1))}
+		itv2 = {i:(Real('itv2_%d_0'%i), Real('itv2_%d_1'%i)) for i in range(len(actual_itv2))}
+		
+		itv_new = {i:(Real('itv_new_%d_0'%i), Real('itv_new_%d_1'%i)) for i in range(len(actual_itv1))}
+
+		num_itv1 = Real('num_itv_1')
+		num_itv2 = Real('num_itv_2')
+		new_num_itv = Int('new_num_itv')
+
+		
+		self.solver.add(And([And(itv1[i][0]==actual_itv1[i][0], itv1[i][1]==actual_itv1[i][1]) for i in range(len(actual_itv1))]+[num_itv1==3]))
+		self.solver.add(And([And(itv2[i][0]==actual_itv2[i][0], itv2[i][1]==actual_itv2[i][1]) for i in range(len(actual_itv1))]+[num_itv2==2]))
+
+		self.solver.add(self.ensureProperIntervals(itv_new, 20))
+		#self.or_itv(itv1, itv2, itv_new, num_itv1, num_itv2, new_num_itv, 20)
+		#self.F_itv(itv1, itv_new, num_itv1, new_num_itv, 20)
+		self.solver.add(self.and_itv(itv1, itv2, itv_new, num_itv1, num_itv2, new_num_itv, 20))
+
+		#self.solver.add(self.not_itv(itv2, itv_new, num_itv2, new_num_itv, 20))
+		#print(self.and_itv(itv1, itv2, itv_new, num_itv1, num_itv2, new_num_itv, 20))
+		
+		solverRes = self.solver.check()
+		print(solverRes)
+
+		if solverRes == sat:
+			solverModel = self.solver.model()
+			for i in range(len(actual_itv1)):
+				print(i, (solverModel[itv_new[i][0]],solverModel[itv_new[i][1]]))
+			#	print(i, solverModel[self.neg_itvs1[i][0]],solverModel[self.neg_itvs1[i][1]])
+			print(solverModel[new_num_itv], solverModel[num_itv1])
+			#print(solverModel[self.neg_num_itvs1])	
+
+def main():
+
+	s = SMTEncoding()
+	s.checking()
+	#
+	#s.def_vars()
+	#s.constraints_for_or()
+	#s.find_sol()
+
+main()
+
+
+'''
 	def constraints_for_F(self):
 		
 		#[0,6,7,10, 11, 12, 20,20,20]
@@ -105,7 +345,7 @@ class SMTEncoding:
 		
 		cons3 = And([Implies(i<self.num_tp, self.t[i]<self.t[i+1]) \
 						for i in range(1,self.max_intervals)])
-		self.solver.assert_and_track(cons3 , 'Maintain order between variables')
+		self.solver.assert_and_track(cons3, 'Maintain order between variables')
 		
 		
 		cons4 = And([Implies((self.t[2*i-1]==self.s1[2*j-1]), \
@@ -176,162 +416,4 @@ class SMTEncoding:
 						for j in range(1, self.even_range+1) for i in range(1, self.even_range+1)])
 		self.solver.assert_and_track(cons7, 'Even variables should be correct for s2 variables')
 
-
-# interval = {i:(Real('l_i'), Real('r_i') for i in range()}
-
-
-	def find_sol(self):
-
-		solverRes = self.solver.check()
-
-		if solverRes == sat:
-			solverModel = self.solver.model()
-			print('SAT')
-			for k in self.t:
-				print('t_%d'%k, solverModel[self.t[k]])
-			print('Num TP', solverModel[self.num_tp])
-		else:
-			checking= self.solver.unsat_core()
-			print(checking)
-			print('UNSAT')
-	
-
-	def ensureProperIntervals(self, itvs, end_time):
-
-		cons1 = And([itvs[i][0]<=itvs[i][1] for i in itvs])
-		self.solver.add(cons1)
-
-		cons2 = And([itvs[i][1]<=itvs[i+1][0] for i in range(len(itvs)-1)])
-		self.solver.add(cons2)
-
-		cons3 = And([And(0<=itvs[i][s], itvs[i][s]<=end_time) for s in [0,1] for i in range(len(itvs))])
-		self.solver.add(cons3)
-
-
-	def not_itv(self, itvs, neg_itvs, num_itv, new_num_itv, end_time):
-
-
-		case1 = And([And(neg_itvs[0][0]==0, neg_itvs[0][1]==itvs[0][0])]+\
-						[Implies(i<=num_itv,And(neg_itvs[i][0] == itvs[i-1][1], neg_itvs[i][1] == itvs[i][0])) for i in range(1,len(itvs))])
-		case2 = And([Implies(i<=num_itv,And(neg_itvs[i][0]==itvs[i][1], neg_itvs[i][1]==itvs[i+1][0])) for i in range(len(itvs)-1)])
-		
-		self.solver.add(If(itvs[0][0] != 0, case1, case2))
-		
-		self.solver.add(And([Implies(And(neg_itvs[i][0]==end_time, neg_itvs[i-1][0]!=end_time), new_num_itv==i) for i in range(1,len(itvs))]))
-	
-
-	def or_itv(self, itvs1, itvs2, or_itvs, num_itv1, num_itv2, new_num_itv, end_time):
-
-
-		
-		#ensuring interval bounds are from either itvs1 or itvs2
-		self.solver.add(And(1<=new_num_itv, new_num_itv<=num_itv1+1))
-		self.solver.add(And([Implies(i<= new_num_itv-1, Or([ Or(or_itvs[i][0]==itvs1[j][0], or_itvs[i][0]==itvs2[j][0]) for j in range(len(itvs1))])) for i in range(len(itvs1))]))
-		self.solver.add(And([Implies(i<= new_num_itv-1, Or([ Or(or_itvs[i][1]==itvs1[j][1], or_itvs[i][1]==itvs2[j][1]) for j in range(len(itvs1))])) for i in range(len(itvs1))]))
-		
-
-		self.solver.add(And([Implies(i <= new_num_itv-1, or_itvs[i][0] < or_itvs[i][1]) for i in range(len(itvs1))]))
-		self.solver.add(And([Implies(i > new_num_itv-1, And(or_itvs[i][0]==end_time, or_itvs[i][1]==end_time)) for i in range(len(itvs1))]))
-
-		
-		#ensuring that intervals cannot be extended
-		self.solver.add(And([And([Implies(And(j+1<=num_itv1, or_itvs[i][0] == itvs1[j][0]),\
-								And([Implies(k+1<=num_itv2, Not(And(itvs2[k][0]<itvs1[j][0], itvs1[j][0]<=itvs2[k][1]))) for k in range(len(itvs2))])) \
-								for j in range(len(itvs1))]) \
-								for i in range(len(itvs1))]))
-		self.solver.add(And([Implies(And([i+1<=num_itv1]+[itvs1[i][0] != or_itvs[j][0] for j in range(len(or_itvs))]),
-											Or([And(itvs2[k][0]<=itvs1[i][0], itvs1[i][0]<=itvs2[k][1]) for k in range(len(itvs1))])) for i in range(len(itvs2))]))
-		
-		self.solver.add(And([And([Implies(And(j+1<=num_itv1, or_itvs[i][1] == itvs1[j][1]),\
-								And([Implies(k+1<=num_itv2, Not(And(itvs2[k][0]<=itvs1[j][1], itvs1[j][1]<itvs2[k][1]))) for k in range(len(itvs2))])) \
-								for j in range(len(itvs1))]) \
-								for i in range(len(itvs1))]))
-		self.solver.add(And([Implies(And([i+1<=num_itv1]+[itvs1[i][1] != or_itvs[j][1] for j in range(len(or_itvs))]),
-											Or([And(itvs2[k][0]<=itvs1[i][1], itvs1[i][1]<=itvs2[k][1]) for k in range(len(itvs1))])) for i in range(len(itvs2))]))
-
-		self.solver.add(And([And([Implies(And(j+1<=num_itv2, or_itvs[i][0] == itvs2[j][0]),\
-								And([Implies(k+1<=num_itv1, Not(And(itvs1[k][0]<itvs2[j][0], itvs2[j][0]<=itvs1[k][1]))) for k in range(len(itvs2))])) \
-								for j in range(len(itvs2))]) \
-								for i in range(len(itvs2))]))
-		self.solver.add(And([Implies(And([i+1<=num_itv2]+[itvs2[i][0] != or_itvs[j][0] for j in range(len(or_itvs))]),
-											Or([And(itvs1[k][0]<=itvs2[i][0], itvs2[i][0]<=itvs1[k][1]) for k in range(len(itvs1))])) for i in range(len(itvs2))]))
-
-
-		self.solver.add(And([And([Implies(And(j+1<=num_itv2, or_itvs[i][1] == itvs2[j][1]),\
-								And([Implies(k+1<=num_itv1, Not(And(itvs1[k][0]<=itvs2[j][1], itvs2[j][1]<itvs1[k][1]))) for k in range(len(itvs2))])) \
-								for j in range(len(itvs2))]) \
-								for i in range(len(itvs2))]))
-		self.solver.add(And([Implies(And([i+1<=num_itv2]+[itvs2[i][1] != or_itvs[j][1] for j in range(len(or_itvs))]),
-											Or([And(itvs1[k][0]<=itvs2[i][1], itvs2[i][1]<=itvs1[k][1]) for k in range(len(itvs1))])) for i in range(len(itvs2))]))
-
-		
-	def F_itv(self, itvs, F_itvs, num_itv,new_num_itv, end_time):
-
-
-		#ensuring interval bounds are from itvs
-		self.solver.add(And(1<=new_num_itv, new_num_itv<=num_itv+1))
-		self.solver.add(And([Implies(i<= new_num_itv-1, Or([F_itvs[i][0]==itvs[j][0] for j in range(len(itvs))])) for i in range(len(itvs))]))
-		self.solver.add(And([Implies(i<= new_num_itv-1, Or([F_itvs[i][1]==itvs[j][1] for j in range(len(itvs))])) for i in range(len(itvs))]))
-		self.solver.add(And([Implies(i <= new_num_itv-1, F_itvs[i][0] < F_itvs[i][1]) for i in range(len(itvs))]))
-		self.solver.add(And([Implies(i > new_num_itv-1, And(F_itvs[i][0]==end_time, F_itvs[i][1]==end_time)) for i in range(len(itvs))]))
-
-
-		#ensuring all intervals are included
-
-		self.solver.add(And([Or([And(F_itvs[j][0] <= itvs[i][0], itvs[i][1]<= F_itvs[j][1]) for j in range(len(F_itvs))]) for i in range(len(itvs))]))
-
-		#ensuring no extra variables are included
-
-		self.solver.add(And([Implies(itvs[i][1] < itvs[j][0], Implies(And([Or((itvs[i][1]+itvs[j][0])/2<itvs[k][0],(itvs[i][1]+itvs[j][0])/2>itvs[k][1]) for k in range(len(itvs))]),\
-								And([Or((itvs[i][1]+itvs[j][0])/2<F_itvs[l][0], (itvs[i][1]+itvs[j][0])/2>F_itvs[l][1]) for l in range(len(F_itvs))])))\
-								for i in range(len(itvs)) for j in range(len(itvs))]))
-
-
-		
-		
-	def checking(self):
-
-		actual_itv1 = [(0,6),(2,5),(4,13),(11,12),(16,17),(20,20)]
-		#actual_itv2 = [(1,4),(6,11),(12,15),(17,18),(20,20),(20,20)]
-
-		#[(0,17), (20,20)]
-
-		itv1 = {i:(Real('itv1_%d_0'%i), Real('itv1_%d_1'%i)) for i in range(len(actual_itv1))}
-		#itv2 = {i:(Real('itv2_%d_0'%i), Real('itv2_%d_1'%i)) for i in range(len(actual_itv2))}
-		
-		itv_new = {i:(Real('itv_new_%d_0'%i), Real('itv_new_%d_1'%i)) for i in range(len(actual_itv1))}
-
-		num_itv1 = Real('num_itv_1')
-		num_itv2 = Real('num_itv_2')
-		new_num_itv = Real('new_num_itv')
-
-
-		
-		self.solver.add(And([And(itv1[i][0]==actual_itv1[i][0], itv1[i][1]==actual_itv1[i][1]) for i in range(len(actual_itv1))]+[num_itv1==5]))
-		#self.solver.add(And([And(itv2[i][0]==actual_itv2[i][0], itv2[i][1]==actual_itv2[i][1]) for i in range(len(actual_itv1))]+[num_itv2==4]))
-
-		self.ensureProperIntervals(itv_new, 20)
-		#self.or_itv(itv1, itv2, itv_new, num_itv1, num_itv2, new_num_itv, 20)
-		self.F_itv(itv1, itv_new, num_itv1, new_num_itv, 20)
-
-		solverRes = self.solver.check()
-		print(solverRes)
-
-		if solverRes == sat:
-			solverModel = self.solver.model()
-			for i in range(len(actual_itv1)):
-				print(i, (solverModel[itv_new[i][0]],solverModel[itv_new[i][1]]))
-			print(solverModel[new_num_itv], solverModel[num_itv1])
-
-def main():
-
-	s = SMTEncoding()
-	s.checking()
-	#
-	#s.def_vars()
-	#s.constraints_for_or()
-	#s.find_sol()
-
-main()
-
-
+'''
