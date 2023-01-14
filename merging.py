@@ -158,7 +158,7 @@ class SMTEncoding:
 		cons3 = self.or_itv(neg_itvs1, neg_itvs2, or_itvs, neg_num_itvs1, neg_num_itvs2, or_num_itvs, end_time)
 		cons4 = self.not_itv(or_itvs, and_itvs, or_num_itvs, new_num_itv, end_time)
 
-		cons5 = And([self.ensureProperIntervals(neg_itvs1, end_time), \
+		cons5 = And([self.ensureProperIntervals(neg_itvs1, end_time),\
 			self.ensureProperIntervals(neg_itvs2, end_time), self.ensureProperIntervals(or_itvs, end_time)])
 
 
@@ -167,11 +167,34 @@ class SMTEncoding:
 		return cons
 
 
+	def minus_itv(self, itvs, minus_itvs, a, b, num_itv, new_num_itv, end_time):
+
+		cons1 = And([Implies(i<new_num_itv,\
+			Or([And([j<num_itv, \
+				minus_itvs[i][0]==If(itvs[j][0]-b>0, itvs[j][0]-b, 0), minus_itvs[i][1]==If(itvs[j][1]>a, itvs[j][1]-a, 0)]) \
+				for j in range(len(itvs)) ])) for i in range(len(itvs))])
+
+		cons2 = And([Implies(And([i<num_itv]+[itvs[i][1]-a != minus_itvs[j][1] for j in range(len(itvs))]),\
+							itvs[i][1] <= a)
+							for i in range(len(itvs))])
+
+		cons3 = And([minus_itvs[i][1]>0 for i in range(len(itvs))])
+
+		cons4 = And([And(minus_itvs[i-1][0]<=minus_itvs[i][0], minus_itvs[i-1][1]<=minus_itvs[i][1])\
+										 for i in range(1,len(itvs))]) 
+
+		cons5 = And([Implies(i >= new_num_itv, \
+					And(minus_itvs[i][0]==end_time, minus_itvs[i][1]==end_time)) for i in range(len(itvs))])
+
+		cons = And([cons1, cons2, cons3, cons4, cons5])
+
+		return cons
 
 
 
 	########################## Operator F ##########################	
-	def F_itv(self, itvs, F_itvs, num_itv, new_num_itv, end_time):
+	def union_itv(self, itvs, F_itvs, num_itv, new_num_itv, end_time):
+
 
 		#ensuring interval bounds are from itvs
 		cons1 = And(1<=new_num_itv, new_num_itv<=num_itv+1)
@@ -193,31 +216,43 @@ class SMTEncoding:
 
 		return cons
 
+
+
+	def F_itv(self, itvs, F_itvs, a, b, num_itv, new_num_itv, end_time):
+
+		minus_itvs = {i:(Real('minus_itvs_%d_0'%i), Real('minus_itvs_%d_1'%i)) for i in range(len(itvs))}
+		minus_num_itv = Int('minus_num_itv')
+		cons1 = self.minus_itv(itvs, minus_itvs, a, b, num_itv, minus_num_itv, end_time)
+		cons2 = self.union_itv(minus_itvs, F_itvs, minus_num_itv, new_num_itv, end_time)
+
+		cons = And([cons1, cons2])
+
+		return cons
+
+
 	########################## Operator G ##########################
-	def G_itv(self, itvs, G_itvs, num_itv, new_num_itv, end_time):
+	def G_itv(self, itvs, G_itvs, a, b, num_itv, new_num_itv, end_time):
+
 
 		#ensuring interval bounds are from itvs
-		neg_itvs1 = {i:(Real('neg_itv1_%d_0'%i), Real('neg_itv1_%d_1'%i)) for i in range(len(itvs1))}
-		neg_num_itvs1 = Int('neg_num_itv_1')
+		neg_itvs = {i:(Real('neg_itv_%d_0'%i), Real('neg_itv_%d_1'%i)) for i in range(len(itvs))}
+		neg_num_itv = Int('neg_num_itv')
 		
-		cons1 = self.not_itv(itvs1, neg_itvs1, num_itv1, neg_num_itvs1, end_time)
-		cons2 = self.not_itv(itvs2, neg_itvs2, num_itv2, neg_num_itvs2, end_time)
+		cons1 = self.not_itv(itvs, neg_itvs, num_itv, neg_num_itv, end_time)
 
-		or_itvs = {i:(Real('or_itv_%d_0'%i), Real('or_itv_%d_1'%i)) for i in range(len(itvs1))}
-		or_num_itvs = Int('or_num_itv')
+		F_itvs = {i:(Real('F_itv_%d_0'%i), Real('F_itv_%d_1'%i)) for i in range(len(itvs))}
+		F_num_itv = Int('F_num_itv')
 
-		cons3 = self.or_itv(neg_itvs1, neg_itvs2, or_itvs, neg_num_itvs1, neg_num_itvs2, or_num_itvs, end_time)
-		cons4 = self.not_itv(or_itvs, and_itvs, or_num_itvs, new_num_itv, end_time)
+		cons2 = self.F_itv(neg_itvs, F_itvs, a, b, neg_num_itv, F_num_itv, end_time)
+		cons3 = self.not_itv(F_itvs, G_itvs, F_num_itv, new_num_itv, end_time)
 
-		cons5 = And([self.ensureProperIntervals(neg_itvs1, end_time), \
-			self.ensureProperIntervals(neg_itvs2, end_time), self.ensureProperIntervals(or_itvs, end_time)])
-
-
-		cons = And([cons1, cons2, cons3, cons4, cons5])
-
-		return cons  
+		cons4 = And([self.ensureProperIntervals(neg_itvs, end_time), \
+			self.ensureProperIntervals(F_itvs, end_time)])
 
 
+		cons = And([cons1, cons2, cons3, cons4])
+
+		return cons
 
 
 
@@ -226,12 +261,14 @@ class SMTEncoding:
 	def checking(self):
 
 		#actual_itv1 = [(0,6),(11,12),(16,17),(20,20)]
-		actual_itv1 = [(0,6),(11,12),(16,17),(20,20)]
+		#actual_itv1 = [(0,6),(8,12),(16,17),(20,20)]
+		actual_itv1 = [(6, 8),(12, 16),(17, 20),(20, 20)]
+		actual_itv1 = [(2, 7),(8, 19),(20, 20),(20, 20)]
 		actual_itv2 = [(1,4),(11,15),(20,20),(20,20)]
 
 		#[(13,14), (15.1,15.6), (7,15), (16,20)]
 		#[(0,17), (20,20)]
-
+		
 		itv1 = {i:(Real('itv1_%d_0'%i), Real('itv1_%d_1'%i)) for i in range(len(actual_itv1))}
 		itv2 = {i:(Real('itv2_%d_0'%i), Real('itv2_%d_1'%i)) for i in range(len(actual_itv2))}
 		
@@ -239,16 +276,18 @@ class SMTEncoding:
 
 		num_itv1 = Real('num_itv_1')
 		num_itv2 = Real('num_itv_2')
+		a = Real('a')
+		b = Real('b')
 		new_num_itv = Int('new_num_itv')
 
 		
-		self.solver.add(And([And(itv1[i][0]==actual_itv1[i][0], itv1[i][1]==actual_itv1[i][1]) for i in range(len(actual_itv1))]+[num_itv1==3]))
-		self.solver.add(And([And(itv2[i][0]==actual_itv2[i][0], itv2[i][1]==actual_itv2[i][1]) for i in range(len(actual_itv1))]+[num_itv2==2]))
+		self.solver.add(And([And(itv1[i][0]==actual_itv1[i][0], itv1[i][1]==actual_itv1[i][1]) for i in range(len(actual_itv1))]+[num_itv1==3,a==1,b==4]))
+		#self.solver.add(And([And(itv2[i][0]==actual_itv2[i][0], itv2[i][1]==actual_itv2[i][1]) for i in range(len(actual_itv1))]+[num_itv2==2,a==1,b==2]))
 
 		self.solver.add(self.ensureProperIntervals(itv_new, 20))
 		#self.or_itv(itv1, itv2, itv_new, num_itv1, num_itv2, new_num_itv, 20)
-		#self.F_itv(itv1, itv_new, num_itv1, new_num_itv, 20)
-		self.solver.add(self.and_itv(itv1, itv2, itv_new, num_itv1, num_itv2, new_num_itv, 20))
+		self.solver.add(self.F_itv(itv1, itv_new, a, b, num_itv1, new_num_itv, 20))
+		#self.solver.add(self.and_itv(itv1, itv2, itv_new, num_itv1, num_itv2, new_num_itv, 20))
 
 		#self.solver.add(self.not_itv(itv2, itv_new, num_itv2, new_num_itv, 20))
 		#print(self.and_itv(itv1, itv2, itv_new, num_itv1, num_itv2, new_num_itv, 20))
