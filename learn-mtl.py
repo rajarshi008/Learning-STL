@@ -13,7 +13,7 @@ from z3 import *
 #from STLmonitoring.main import genBooleanSat
 #from main import genBooleanSat
 
-class learnSTL:
+class learnMTL:
 
 	def __init__(self, signalfile):
 
@@ -21,14 +21,50 @@ class learnSTL:
 		self.signalfile = signalfile
 		self.signal_sample = Sample()
 		self.signal_sample.readSample(self.signalfile)
+		self.size_bound = 5
+		self.props = self.signal_sample.vars
+		self.prop2num = {self.props[i]:i for i in range(len(self.props))}
+		self.end_time = self.signal_sample.end_time
+		print(self.signal_sample.positive[0])
+		self.compute_prop_intervals()
+		print(self.prop_itvs)
 
 		#self.predicates = 
-		self.size_bound = 5
-		self.fr_bound = 4
-		self.search_order = [(i,j) for i in range(1, self.fr_bound+1,5) for j in range(1, self.size_bound+1)] #can try out other search orders
-		self.predicates = self.signal_sample.predicates
+		
+		#self.fr_bound = 4
+		#self.search_order = [(i,j) for i in range(1, self.fr_bound+1,5) for j in range(1, self.size_bound+1)] #can try out other search orders
+		#self.predicates = self.signal_sample.predicates
 		#print(self.search_order)
-					
+	
+
+	def compute_prop_intervals(self):
+
+		timepoints = [sp.time for sp in self.signal_sample.positive[0].sequence]
+		
+		self.prop_itvs = {}
+		for p in self.props:
+			for signal_id, signal in enumerate(self.signal_sample.positive+self.signal_sample.negative):
+				parity = 0
+				itvs = []
+				for sp in signal.sequence:
+					if parity == 0 and sp.vector[self.prop2num[p]] == 1:
+						parity = 1
+						itv = (sp.time,)
+						continue
+
+					if parity == 1 and sp.vector[self.prop2num[p]] == 0:
+						parity = 0
+						itv += (sp.time,)
+						itvs.append(itv)
+						itv = ()
+						continue
+
+				if len(itv) == 1:
+					itv += (self.end_time,)
+				itvs.append(itv)
+				self.prop_itvs[(p,signal_id)] = itvs
+
+
 
 	def interesting_pred(self):
 	
@@ -73,73 +109,12 @@ class learnSTL:
 		return new_sample
 
 
-	def calcUTP(self, itp):
-		'''
-		Calculates the uniform time points from interesting time points
-		'''
-		# Assuming that the time points have upto 3 decimals
-		if len(itp) <= 1:
-			return itp
-
-		new_diff = int(1000*(round(itp[1]-itp[0],3)))
-		for i in range(len(itp)-1):
+	def search_only_size(self):
 		
-			diff = int(1000*(round(itp[i+1]-itp[i],3)))
-			new_diff = math.gcd(diff, new_diff)
-
-		#new_diff = math.gcd(*diff_list)/1000
-		gcd = new_diff/1000
-
-		print('GCD value: ', gcd)
-		start_time = itp[0]
-		end_time = itp[-1]
-		#print((end_time-start_time)/new_diff)
-		
-		utp = [round(start_time+i*gcd,3) for i in range(int((end_time-start_time)/gcd))]
-
-		utp.append(end_time)
-		return utp
-
-	def calcNewTP(self, itp):
-
-		add_itp = [round(itp[j]-itp[i],3) for i in range(len(itp)) for j in range(i,len(itp))]
-		utp = sorted(list(set(itp + add_itp)))
-		
-		return utp
-
-
-	def search(self):
-
-		found_formula_size= 5
-		formula_list = []
-		'''
-		Searches for appropriate MTL formulas for the given predicates
-		'''
-		#for fr in [4]:
-		for fr in range(1,self.fr_bound+1):
-
-			print('***************Fixing fr to be %d***************'%fr)
-			curr_sample = self.truncate_sample(fr)
-			binary_sample, alphabet, prop2pred, itp = convertSignals2Traces(curr_sample) # possible optimization to add only new points
-			#print(type(binary_sample.positive[0]))
-			binary_sample.writeToFile('dummy_%d.trace'%fr)
-			print(itp)
-
-			utp = self.calcUTP(itp)
-			
-			#utp = self.calcNewTP(itp)
-	
-			print(utp)
-
-			print('* Number of interesting time points: %d'%len(itp))
-			#print('* Number of new interesting time points: %d'%len(utp))
-			print('* Number of uniformized time points: %d'%len(utp))
-
-			#for formula_size in [4]:
-			for formula_size in range(1,found_formula_size): 
+		for formula_size in range(1,5): 
 			#for formula_size in range(1,self.size_bound+1): 
 				print('---------------Searching for formula size %d---------------'%formula_size)
-				encoding = SMTEncoding(binary_sample, formula_size, alphabet, itp, utp, prop2pred)
+				encoding = SMTEncoding(self.signal_sample, formula_size, self.props, self.prop_itvs, self.end_time)
 				encoding.encodeFormula()
 				
 				solverRes = encoding.solver.check()
@@ -167,9 +142,9 @@ class learnSTL:
 					print('Found formula %s of size %d'%(formula.prettyPrint(), formula.size))
 					break
 
-			for formula in formula_list:
-				print(formula.prettyPrint())
-				self.check_consistency(formula)
+		for formula in formula_list:
+			print(formula.prettyPrint())
+			self.check_consistency(formula)
 
 
 	def check_consistency(self, formula):
@@ -216,7 +191,7 @@ def main():
 
 	parser = argparse.ArgumentParser()
 
-	parser.add_argument('--input_file', '-i', dest='input_file', default = './robot_signal.signal')
+	parser.add_argument('--input_file', '-i', dest='input_file', default = './robot_signal_mtl.signal')
 	parser.add_argument('--timeout', '-t', dest='timeout', default=900, type=int)
 	parser.add_argument('--outputcsv', '-o', dest='csvname', default= './result.csv')
 	parser.add_argument('--verbose', '-v', dest='verbose', default=3, action='count')
@@ -225,8 +200,8 @@ def main():
 	input_file = args.input_file
 	timeout = float(args.timeout)
 
-	learner = learnSTL(signalfile=input_file)
-	learner.search()
+	learner = learnMTL(signalfile=input_file)
+	#learner.search_only_size()
 
 
 main()

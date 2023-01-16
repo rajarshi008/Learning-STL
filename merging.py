@@ -89,7 +89,7 @@ class SMTEncoding:
 
 		cons3 = And([Implies(i >= new_num_itv, And(neg_itvs[i][0]==end_time, neg_itvs[i][1]==end_time)) for i in range(len(itvs))])
 
-		cons = And([cons1, cons2])
+		cons  =And([cons1, cons2])
 
 		return cons
 	
@@ -102,7 +102,6 @@ class SMTEncoding:
 		cons2 = And([Implies(i<= new_num_itv-1, Or([ Or(or_itvs[i][0]==itvs1[j][0], or_itvs[i][0]==itvs2[j][0]) for j in range(len(itvs1))])) for i in range(len(itvs1))])
 		cons3 = And([Implies(i<= new_num_itv-1, Or([ Or(or_itvs[i][1]==itvs1[j][1], or_itvs[i][1]==itvs2[j][1]) for j in range(len(itvs1))])) for i in range(len(itvs1))])
 		
-
 		cons4 = And([Implies(i <= new_num_itv-1, or_itvs[i][0] < or_itvs[i][1]) for i in range(len(itvs1))])
 		cons5 = And([Implies(i > new_num_itv-1, And(or_itvs[i][0]==end_time, or_itvs[i][1]==end_time)) for i in range(len(itvs1))])
 
@@ -268,7 +267,7 @@ class SMTEncoding:
 
 		#[(13,14), (15.1,15.6), (7,15), (16,20)]
 		#[(0,17), (20,20)]
-		
+
 		itv1 = {i:(Real('itv1_%d_0'%i), Real('itv1_%d_1'%i)) for i in range(len(actual_itv1))}
 		itv2 = {i:(Real('itv2_%d_0'%i), Real('itv2_%d_1'%i)) for i in range(len(actual_itv2))}
 		

@@ -4,7 +4,7 @@ from formula import STLFormula
 
 class SMTEncoding:
 
-	def __init__(self, sample, formula_size, prop, prop_itvs, end_time): 
+	def __init__(self, traces, formula_size, alphabet, itp, utp, prop2pred): 
 		
 		defaultOperators = ['G', 'F', '!', '&', '|', '->']
 		unary = ['G','F', '!']	
@@ -37,12 +37,13 @@ class SMTEncoding:
 		
 		self.solver = Solver()
 		self.formula_size = formula_size
-		self.sample = sample
-		self.listOfPropositions = prop
-		self.num_sampled_points = len(self.sample.positive[0].sequence)
-		self.max_intervals = self.formula_size*self.num_sampled_points
-		self.prop_itvs = prop_itvs
-		self.end_time = end_time
+		self.traces = traces
+		self.alphabet = alphabet
+		self.itp = itp
+		self.utp = utp
+		self.numtp = len(self.itp)
+		self.listOfPropositions = list(range(len(alphabet)))
+		self.prop2pred = prop2pred
 
 		#self.listOfPropositions = [i for i in range(self.traces.numPropositions)]
 		
@@ -75,10 +76,10 @@ class SMTEncoding:
 												 for parentOperator in range(1,self.formula_size)\
 												 for childOperator in range(parentOperator)}
 
-		self.itvs = { (i, signal_id, t) : (Real('itv_%d_%d_%d_%d'%(i,signal_id,t,0)), Real('itv_%d_%d_%d_%d'%(i,signal_id,t,1)))\
+		self.y = { (i, traceIdx, pos) : Bool('y_%d_%d_%d'%(i,traceIdx,pos))\
 				  for i in range(self.formula_size)\
-				  for signal_id, signal in enumerate(self.sample.positive + self.sample.negative)\
-				  for t in range(self.max_intervals) }
+				  for traceIdx, trace in enumerate(self.traces.positive + self.traces.negative)\
+				  for pos in range(len(self.utp)) }
 		
 		#print('x-vars:',self.x)
 		#print('y-vars',self.y)
@@ -96,14 +97,13 @@ class SMTEncoding:
 		self.operatorsSemantics() #<---
 
 		#self.futureReachBound() #<---
-		for signal_id in range(len(self.sample.positive)):
-			self.solver.assert_and_track(self.itvs[(self.formula_size - 1, signal_id, 0)][0]==0, \
-										"Positive signal %d should hold"%signal_id)
+		for traceIdx in range(len(self.traces.positive)):
+			self.solver.add(self.y[(self.formula_size - 1, traceIdx, 0)])
 					
-		for signal_id in range(len(self.sample.positive), len(self.sample.positive+self.sample.negative)):
-			self.solver.assert_and_track(self.itvs[(self.formula_size - 1, signal_id, 0)][0]>0, \
-										"Negative signal %d should hold"%signal_id)
-			
+
+		for traceIdx in range(len(self.traces.positive), len(self.traces.positive+self.traces.negative)):
+			self.solver.add(Not(self.y[(self.formula_size - 1, traceIdx, 0)]))
+
 		
 										   
 			  
@@ -112,29 +112,28 @@ class SMTEncoding:
 		for i in range(self.formula_size):
 
 			if 'G' in self.listOfOperators:
-				#globally				
+				  #globally				
 				self.solver.assert_and_track(Implies(self.x[(i, 'G')], (self.a[i] <= self.b[i])),\
 											'temporal bounds of globally operator for node %d'%i)
 
-				#self.solver.assert_and_track(Implies(self.x[(i, 'G')], Or([self.a[i] == self.utp[tp] for tp in range(len(self.utp))])),\
-				#							'temporal lower bounds values of globally operator for node %d'%i)
+				self.solver.assert_and_track(Implies(self.x[(i, 'G')], Or([self.a[i] == self.utp[tp] for tp in range(len(self.utp))])),\
+											'temporal lower bounds values of globally operator for node %d'%i)
  
-				#self.solver.assert_and_track(Implies(self.x[(i, 'G')], Or([self.b[i] == self.utp[tp] for tp in range(len(self.utp))])),\
-				#							'temporal upper bounds values of globally operator for node %d'%i)
+				self.solver.assert_and_track(Implies(self.x[(i, 'G')], Or([self.b[i] == self.utp[tp] for tp in range(len(self.utp))])),\
+											'temporal upper bounds values of globally operator for node %d'%i)
 				#self.solver.assert_and_track(Implies(self.x[(i, 'G')], Or([self.b[i] == 3])),\
 				#							'temporal upper bounds values of globally operator for node %d'%i)
  
 			if 'F' in self.listOfOperators:				  
-				#finally				
+				  #finally				
 				self.solver.assert_and_track(Implies(self.x[(i, 'F')], (self.a[i] <= self.b[i])),\
-											   
 											   'temporal bounds of finally operator for node %d'%i)
 				
-				#self.solver.assert_and_track(Implies(self.x[(i, 'F')], Or([self.a[i] == self.utp[tp] for tp in range(len(self.utp))])),\
-				#							'temporal lower bounds values of finally operator for node %d'%i)
+				self.solver.assert_and_track(Implies(self.x[(i, 'F')], Or([self.a[i] == self.utp[tp] for tp in range(len(self.utp))])),\
+											'temporal lower bounds values of finally operator for node %d'%i)
  
-				#self.solver.assert_and_track(Implies(self.x[(i, 'F')], Or([self.b[i] == self.utp[tp] for tp in range(len(self.utp))])),\
-				#							'temporal upper bounds values of finally operator for node %d'%i)						 
+				self.solver.assert_and_track(Implies(self.x[(i, 'F')], Or([self.b[i] == self.utp[tp] for tp in range(len(self.utp))])),\
+											'temporal upper bounds values of finally operator for node %d'%i)						 
 
 
 	def firstOperatorProposition(self):
@@ -148,7 +147,7 @@ class SMTEncoding:
 			self.solver.assert_and_track(
 				And([
 					Or(
-						AtLeast([self.l[(rowId, i)] for rowId in range(i+1, self.formula_size)] + [1]),
+						AtLeast([self.l[(rowId, i)] for rowId in range(i+1, self.formula_size)]+ [1]),
 						AtLeast([self.r[(rowId, i)] for rowId in range(i+1, self.formula_size)] + [1])
 					)
 					for i in range(self.formula_size - 1)]
@@ -157,11 +156,32 @@ class SMTEncoding:
 			)
 
 	def propositionsSemantics(self):
+		for i in range(self.formula_size):
+			#
+			for p in self.listOfPropositions:
+			#	
+				for traceIdx, tr in enumerate(self.traces.positive + self.traces.negative):
+				#	
+					#print('For trace %d'%traceIdx)
+					conjunction_list = []
+					itp_pos = 0
+
+					for tp in range(len(self.utp)):
+						#print('tp', tp)
+						
+
+						if self.utp[tp] == self.itp[itp_pos]:
+							itp_pos += 1
+
+						#if tp>=10:
+						#	print(self.utp[tp], self.itp[itp_pos-1], tr.vector[itp_pos-1][p])
+
+						conjunction_list.append(self.y[(i,traceIdx, tp)] \
+							if tr.vector[itp_pos-1][p] == True else Not(self.y[(i, traceIdx, tp)]))
 
 
 
-		
-		self.solver.assert_and_track(Implies(self.x[(i, p)],\
+					self.solver.assert_and_track(Implies(self.x[(i, p)],\
 														  And(conjunction_list)),\
 														  "semantics of propositional variable node_"\
 														  +str(i)+' var _'+str(p)+'_trace_'+str(traceIdx))

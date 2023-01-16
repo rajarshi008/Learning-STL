@@ -4,12 +4,11 @@ def convertTextToSignal(text):
 	split1 = text.split(';')
 	for value in split1:
 		time, vector = value.split(':')
-		vector = [float(i) for i in vector.split(',')]
+		vector = [bool(int(i)) for i in vector.split(',')]
 		sp = samplePoint(float(time), vector)
 		sequence.append(sp)
 
 	return Signal(sequence)
-
 
 
 default_operators = ['&', '|', '!', 'F', 'G', 'U']
@@ -124,6 +123,7 @@ class Sample:
 			self.operators = operators
 
 		self.predicates = {}
+		self.end_time = None
 
 	def readSample(self, signalfile):
 		
@@ -151,29 +151,25 @@ class Sample:
 					
 					signal = convertTextToSignal(line)
 					self.negative.append(signal)
-					
+				
 				if mode==2:
+					self.end_time = float(line.strip())
+
+				if mode==3:
 				
 					self.operators = list(line.strip().split(','))
 				
-				if mode==3:
+				if mode==4:
 
 					self.vars = list(line.strip().split(','))
 					print(self.vars)
 					
-				if mode==4:
+				#if mode==4:
 
-					if self.vars == []:
-						self.vars = ['x'+str(i) for i in range(self.numVars)]
-
-					line = line.split(';')
-					if len(line) != len(self.vars):
-						raise Exception("Not enough predicates")
-
-					for i in range(len(line)):
-						self.predicates[self.vars[i]] = [float(j) for j in line[i].split(',') if j != '']
-		
-		
+			if self.vars == []:
+				self.vars = ['p'+str(i) for i in range(self.numVars)]
+	
+	
 	def writeSample(self, signalfile):
 
 		with open(signalfile, 'w') as file:
