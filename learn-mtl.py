@@ -111,7 +111,7 @@ class learnMTL:
 
 	def search_only_size(self):
 		
-		for formula_size in range(1,2): 
+		for formula_size in range(1,3): 
 			#for formula_size in range(1,self.size_bound+1): 
 				print('---------------Searching for formula size %d---------------'%formula_size)
 				encoding = SMTEncoding(self.signal_sample, formula_size, self.props, self.prop_itvs, self.end_time)
@@ -137,14 +137,14 @@ class learnMTL:
   							print(type(t),t)
   					'''
 					formula = encoding.reconstructWholeFormula(solverModel)
-					formula_list.append(formula)
+					#formula_list.append(formula)
 					found_formula_size = formula.treeSize()
 					print('Found formula %s of size %d'%(formula.prettyPrint(), formula.size))
 					break
 
-		for formula in formula_list:
-			print(formula.prettyPrint())
-			self.check_consistency(formula)
+		#for formula in formula_list:
+		#	print(formula.prettyPrint())
+		#	self.check_consistency(formula)
 
 
 	def check_consistency(self, formula):

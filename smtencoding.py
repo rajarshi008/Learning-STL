@@ -1,17 +1,18 @@
 from z3 import *
 from formula import STLFormula
-
+from merging import not_itv
 
 class SMTEncoding:
 
 	def __init__(self, sample, formula_size, prop, prop_itvs, end_time): 
 		
-		defaultOperators = ['G', 'F', '!', '&', '|', '->']
-		unary = ['G','F', '!']	
-		binary = ['&', '|', '->']
-		
-
-		#unary = ['G']	
+		#defaultOperators = ['G', 'F', '!', '&', '|', '->']
+		#unary = ['G','F', '!']	
+		#binary = ['&', '|', '->']
+		defaultOperators = ['!']
+		unary = ['!']
+		binary = []
+		#unary = ['G']
 		#binary = ['&']
 		#defaultOperators = ['G', 'F']
 		#unary = ['G', 'F']	
@@ -43,7 +44,6 @@ class SMTEncoding:
 		self.max_intervals = self.formula_size*self.num_sampled_points
 		self.prop_itvs = prop_itvs
 		self.end_time = end_time
-		self.formula_size=1
 
 		#self.listOfPropositions = [i for i in range(self.traces.numPropositions)]
 		
@@ -76,10 +76,15 @@ class SMTEncoding:
 												 for parentOperator in range(1,self.formula_size)\
 												 for childOperator in range(parentOperator)}
 
-		self.itvs = { (i, signal_id, t) : (Real('itv_%d_%d_%d_%d'%(i,signal_id,t,0)), Real('itv_%d_%d_%d_%d'%(i,signal_id,t,1)))\
+		self.itvs = { (i, signal_id): {t:(Real('itv_%d_%d_%d_%d'%(i,signal_id,t,0)), Real('itv_%d_%d_%d_%d'%(i,signal_id,t,1))) for t in range(self.max_intervals)}\
 				  for i in range(self.formula_size)\
 				  for signal_id, signal in enumerate(self.sample.positive + self.sample.negative)\
-				  for t in range(self.max_intervals) }
+				   }
+
+		self.num_itvs = {(i, signal_id): Int('num_itv_%d_%d'%(i,signal_id))\
+						for i in range(self.formula_size)\
+						for signal_id, signal in enumerate(self.sample.positive + self.sample.negative)}
+
 		
 		#print('x-vars:',self.x)
 		#print('y-vars',self.y)
@@ -98,13 +103,13 @@ class SMTEncoding:
 
 		#self.futureReachBound() #<---
 		for signal_id in range(len(self.sample.positive)):
-			self.solver.assert_and_track(self.itvs[(self.formula_size - 1, signal_id, 0)][0]==0, \
+			self.solver.assert_and_track(self.itvs[(self.formula_size - 1, signal_id)][0][0]==0, \
 										"Positive signal %d should hold"%signal_id)
 					
 		for signal_id in range(len(self.sample.positive), len(self.sample.positive+self.sample.negative)):
-			self.solver.assert_and_track(self.itvs[(self.formula_size - 1, signal_id, 0)][0]>0, \
+			self.solver.assert_and_track(self.itvs[(self.formula_size - 1, signal_id)][0][0]>0, \
 										"Negative signal %d should hold"%signal_id)
-			
+				
 		
 										   
 			  
@@ -163,9 +168,10 @@ class SMTEncoding:
 			for i in range(self.formula_size):
 				for signal_id, signal in enumerate(self.sample.positive + self.sample.negative):
 					self.solver.assert_and_track(Implies(self.x[(i, p)],\
-															And(And([self.itvs[(i, signal_id, t)][k] == self.prop_itvs[(p,signal_id)][t][k]  \
-															 for t in range(len(self.prop_itvs[(p,signal_id)])) for k in range(2)]), And([self.itvs[(i, signal_id, t)][k] == self.end_time\
-															 for t in range(len(self.prop_itvs[(p,signal_id)]),self.max_intervals) for k in range(2)]))),\
+															And([And([self.itvs[(i, signal_id)][t][k] == self.prop_itvs[(p,signal_id)][t][k]  \
+															 for t in range(len(self.prop_itvs[(p,signal_id)])) for k in range(2)]), And([self.itvs[(i, signal_id)][t][k] == self.end_time\
+															 for t in range(len(self.prop_itvs[(p,signal_id)]),self.max_intervals) for k in range(2)]),\
+															 self.num_itvs[(i,signal_id)]== len(self.prop_itvs[(p,signal_id)])])),\
 															  "Intervals for propositional variable node_"+ str(i)+ 'var _'+str(p)+'_signal_'+ str(signal_id))
 
 
@@ -286,13 +292,30 @@ class SMTEncoding:
 
 	def operatorsSemantics(self):
 
-		for traceIdx, tr in enumerate(self.traces.positive + self.traces.negative):
+		for signal_id, signal in enumerate(self.sample.positive + self.sample.negative):
 			
 			for i in range(1, self.formula_size):
 
-				T = len(self.utp)
-				if '|' in self.listOfOperators:
+				#if '|' in self.listOfOperators:
 
+				if '!' in self.listOfOperators:
+					#negation
+					self.solver.assert_and_track(Implies(self.x[(i, '!')],\
+														   And([\
+															   Implies(\
+																		 self.l[(i,onlyArg)],\
+																		 not_itv(self.itvs[(onlyArg,signal_id)], \
+																		 	self.itvs[(i,signal_id)], self.num_itv[(onlyArg,signal_id)],\
+																		 	self.num_itv[(i, signal_id)], self.end_time)
+																		  )\
+															   for onlyArg in range(i)\
+															   ])\
+														   ),\
+												   'semantics of negation for trace %d and node %d' % (signal_id, i)\
+												   )
+
+
+					'''
 					#disjunction
 					self.solver.assert_and_track(Implies(self.x[(i, '|')],\
 															And([ Implies(\
@@ -354,22 +377,7 @@ class SMTEncoding:
 															 'semantics of implication for trace %d and node %d'%(traceIdx, i))
 
 				
-				if '!' in self.listOfOperators:
-					#negation
-					self.solver.assert_and_track(Implies(self.x[(i, '!')],\
-														   And([\
-															   Implies(\
-																		 self.l[(i,onlyArg)],\
-																		 And([\
-																			  self.y[(i, traceIdx, tp)] == Not(self.y[(onlyArg, traceIdx, tp)])\
-																			  for tp in range(T)\
-																			  ])\
-																		  )\
-															   for onlyArg in range(i)\
-															   ])\
-														   ),\
-												   'semantics of negation for trace %d and node %d' % (traceIdx, i)\
-												   )
+				
 				if 'G' in self.listOfOperators:
 					#globally				
 					self.solver.assert_and_track(Implies(self.x[(i, 'G')],\
@@ -407,7 +415,7 @@ class SMTEncoding:
 														   ),\
 												   'semantics of finally operator for trace %d and node %d' % (traceIdx, i)\
 				  									)
-										
+				'''			
 		
 	def reconstructWholeFormula(self, model):
 
@@ -430,7 +438,7 @@ class SMTEncoding:
 		if operator in self.listOfPropositions:
 		
 			#print(str(self.alphabet[operator]))
-			return STLFormula(label=self.prop2pred[str(self.alphabet[operator])])
+			return STLFormula(label=operator)
 		
 		elif operator in self.unaryOperators:
 		

@@ -1,6 +1,34 @@
 from z3 import *
 
 
+
+
+def not_itv(itvs, neg_itvs, num_itv, new_num_itv, end_time):
+
+	'''
+	case1 = And([And(neg_itvs[0][0]==0, neg_itvs[0][1]==itvs[0][0])]+\
+					[Implies(i<=num_itv,And(neg_itvs[i][0] == itvs[i-1][1], neg_itvs[i][1] == itvs[i][0])) for i in range(1,len(itvs))])
+	case2 = And([Implies(i<=num_itv,And(neg_itvs[i][0]==itvs[i][1], neg_itvs[i][1]==itvs[i+1][0])) for i in range(len(itvs)-1)])
+	'''
+	case1 = And([And(neg_itvs[0][0]==0, neg_itvs[0][1]==itvs[0][0])]+\
+					[And(neg_itvs[i][0] == itvs[i-1][1], neg_itvs[i][1] == itvs[i][0]) for i in range(1,len(itvs))])
+	case2 = And([And(neg_itvs[i][0]==itvs[i][1], neg_itvs[i][1]==itvs[i+1][0]) for i in range(len(itvs)-1)])
+
+	cons1 = If(itvs[0][0] != 0, case1, case2)
+	
+	cons2 = And([Implies(And(neg_itvs[i][0]==end_time, neg_itvs[i-1][0]!=end_time), new_num_itv==i) for i in range(1,len(itvs))])
+
+	cons3 = And([Implies(i >= new_num_itv, And(neg_itvs[i][0]==end_time, neg_itvs[i][1]==end_time)) for i in range(len(itvs))])
+
+	cons  =And([cons1, cons2])
+
+	return cons
+
+
+
+
+
+
 class SMTEncoding:
 
 	def __init__(self):
