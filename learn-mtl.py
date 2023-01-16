@@ -27,7 +27,7 @@ class learnMTL:
 		self.end_time = self.signal_sample.end_time
 		print(self.signal_sample.positive[0])
 		self.compute_prop_intervals()
-		print(self.prop_itvs)
+		print(self.prop_itvs['p',0][0])
 
 		#self.predicates = 
 		
@@ -111,7 +111,7 @@ class learnMTL:
 
 	def search_only_size(self):
 		
-		for formula_size in range(1,5): 
+		for formula_size in range(1,2): 
 			#for formula_size in range(1,self.size_bound+1): 
 				print('---------------Searching for formula size %d---------------'%formula_size)
 				encoding = SMTEncoding(self.signal_sample, formula_size, self.props, self.prop_itvs, self.end_time)
@@ -201,7 +201,7 @@ def main():
 	timeout = float(args.timeout)
 
 	learner = learnMTL(signalfile=input_file)
-	#learner.search_only_size()
+	learner.search_only_size()
 
 
 main()

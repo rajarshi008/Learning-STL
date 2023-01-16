@@ -43,6 +43,7 @@ class SMTEncoding:
 		self.max_intervals = self.formula_size*self.num_sampled_points
 		self.prop_itvs = prop_itvs
 		self.end_time = end_time
+		self.formula_size=1
 
 		#self.listOfPropositions = [i for i in range(self.traces.numPropositions)]
 		
@@ -93,7 +94,7 @@ class SMTEncoding:
 		
 		# Semantic Constraints
 		self.propositionsSemantics()
-		self.operatorsSemantics() #<---
+		#self.operatorsSemantics() #<---
 
 		#self.futureReachBound() #<---
 		for signal_id in range(len(self.sample.positive)):
@@ -158,13 +159,22 @@ class SMTEncoding:
 
 	def propositionsSemantics(self):
 
+		for p in self.listOfPropositions:
+			for i in range(self.formula_size):
+				for signal_id, signal in enumerate(self.sample.positive + self.sample.negative):
+					self.solver.assert_and_track(Implies(self.x[(i, p)],\
+															And(And([self.itvs[(i, signal_id, t)][k] == self.prop_itvs[(p,signal_id)][t][k]  \
+															 for t in range(len(self.prop_itvs[(p,signal_id)])) for k in range(2)]), And([self.itvs[(i, signal_id, t)][k] == self.end_time\
+															 for t in range(len(self.prop_itvs[(p,signal_id)]),self.max_intervals) for k in range(2)]))),\
+															  "Intervals for propositional variable node_"+ str(i)+ 'var _'+str(p)+'_signal_'+ str(signal_id))
+
 
 
 		
-		self.solver.assert_and_track(Implies(self.x[(i, p)],\
-														  And(conjunction_list)),\
-														  "semantics of propositional variable node_"\
-														  +str(i)+' var _'+str(p)+'_trace_'+str(traceIdx))
+		#self.solver.assert_and_track(Implies(self.x[(i, p)],\
+		#												  And(conjunction_list)),\
+		#												  "semantics of propositional variable node_"\
+		#												  +str(i)+' var _'+str(p)+'_trace_'+str(traceIdx))
 
 		
 	def exactlyOneOperator(self):
