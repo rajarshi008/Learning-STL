@@ -25,9 +25,9 @@ class learnMTL:
 		self.props = self.signal_sample.vars
 		self.prop2num = {self.props[i]:i for i in range(len(self.props))}
 		self.end_time = self.signal_sample.end_time
-		print(self.signal_sample.positive[0])
+		#print(self.signal_sample.positive[0])
 		self.compute_prop_intervals()
-		print(self.prop_itvs['p',0][0])
+		#print(self.prop_itvs['p',2])
 
 		#self.predicates = 
 		
@@ -44,6 +44,7 @@ class learnMTL:
 		self.prop_itvs = {}
 		for p in self.props:
 			for signal_id, signal in enumerate(self.signal_sample.positive+self.signal_sample.negative):
+				
 				parity = 0
 				itvs = []
 				for sp in signal.sequence:
@@ -61,7 +62,7 @@ class learnMTL:
 
 				if len(itv) == 1:
 					itv += (self.end_time,)
-				itvs.append(itv)
+					itvs.append(itv)
 				self.prop_itvs[(p,signal_id)] = itvs
 
 

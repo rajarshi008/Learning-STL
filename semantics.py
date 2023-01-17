@@ -26,78 +26,78 @@ def not_itv(itvs, neg_itvs, num_itv, new_num_itv, end_time):
 
 
 def or_itv(itvs1, itvs2, or_itvs, num_itv1, num_itv2, new_num_itv, end_time):
-		#optimize
-		max_int = len(itvs1)
-		#ensuring interval bounds are from either itvs1 or itvs2
-		#cons1 = And(1<=new_num_itv, new_num_itv<=num_itv1+1)
-		cons2 = And([Implies(i<new_num_itv, Or([ Or(or_itvs[i][s]==itvs1[j][s], or_itvs[i][s]==itvs2[j][s])  for j in range(len(itvs1))])) for s in [0,1] for i in range(len(itvs1))])
-		#cons3 = And([Implies(i<new_num_itv, Or([ Or(or_itvs[i][1]==itvs1[j][1], or_itvs[i][1]==itvs2[j][1]) for j in range(len(itvs1))])) for i in range(len(itvs1))])
-		
-		cons4 = And([Implies(i < new_num_itv, or_itvs[i][0] < or_itvs[i][1]) for i in range(len(itvs1))])
-		cons5 = And([Implies(i > new_num_itv-1, And(or_itvs[i][0]==end_time, or_itvs[i][1]==end_time)) for i in range(len(itvs1))])
+	#optimize
+	max_int = len(itvs1)
+	#ensuring interval bounds are from either itvs1 or itvs2
+	#cons1 = And(1<=new_num_itv, new_num_itv<=num_itv1+1)
+	cons2 = And([Implies(i<new_num_itv, Or([ Or(or_itvs[i][s]==itvs1[j][s], or_itvs[i][s]==itvs2[j][s])  for j in range(len(itvs1))])) for s in [0,1] for i in range(len(itvs1))])
+	#cons3 = And([Implies(i<new_num_itv, Or([ Or(or_itvs[i][1]==itvs1[j][1], or_itvs[i][1]==itvs2[j][1]) for j in range(len(itvs1))])) for i in range(len(itvs1))])
+	
+	cons4 = And([Implies(i < new_num_itv, or_itvs[i][0] < or_itvs[i][1]) for i in range(len(itvs1))])
+	cons5 = And([Implies(i > new_num_itv-1, And(or_itvs[i][0]==end_time, or_itvs[i][1]==end_time)) for i in range(len(itvs1))])
 
-		
-		#ensuring that intervals cannot be extended
-		#cons6 = And([Implies(And(j+1<=num_itv1, or_itvs[i][0] == itvs1[j][0]),\
-		#						And([Or(itvs2[k][0]>=itvs1[j][0], itvs1[j][0]>itvs2[k][1]) for k in range(len(itvs2))])) \
-		#						for j in range(len(itvs1)) \
-		#						for i in range(len(itvs1))])
-		
-		cons6 = And([Implies(j<num_itv1,\
-							Or([itvs1[j][0] == or_itvs[i][0] for i in range(max_int)])==\
-								And([Or(itvs2[k][0]>=itvs1[j][0], itvs1[j][0]>itvs2[k][1]) for k in range(max_int)]))\
-								 for j in range(max_int)])
+	
+	#ensuring that intervals cannot be extended
+	#cons6 = And([Implies(And(j+1<=num_itv1, or_itvs[i][0] == itvs1[j][0]),\
+	#						And([Or(itvs2[k][0]>=itvs1[j][0], itvs1[j][0]>itvs2[k][1]) for k in range(len(itvs2))])) \
+	#						for j in range(len(itvs1)) \
+	#						for i in range(len(itvs1))])
+	
+	cons6 = And([Implies(j<num_itv1,\
+						Or([itvs1[j][0] == or_itvs[i][0] for i in range(max_int)])==\
+							And([Or(itvs2[k][0]>=itvs1[j][0], itvs1[j][0]>itvs2[k][1]) for k in range(max_int)]))\
+							 for j in range(max_int)])
 
-		cons7 = And([Implies(j<num_itv1,\
-							Or([itvs1[j][1] == or_itvs[i][1] for i in range(max_int)])==\
-								And([Or(itvs2[k][0]>itvs1[j][1], itvs1[j][1]>=itvs2[k][1]) for k in range(max_int)]))\
-								 for j in range(max_int)])
+	cons7 = And([Implies(j<num_itv1,\
+						Or([itvs1[j][1] == or_itvs[i][1] for i in range(max_int)])==\
+							And([Or(itvs2[k][0]>itvs1[j][1], itvs1[j][1]>=itvs2[k][1]) for k in range(max_int)]))\
+							 for j in range(max_int)])
 
-		cons8 = And([Implies(j<num_itv2,\
-							Or([itvs2[j][0] == or_itvs[i][0] for i in range(max_int)])==\
-								And([Or(itvs1[k][0]>=itvs2[j][0], itvs2[j][0]>itvs1[k][1]) for k in range(max_int)]))\
-								 for j in range(max_int)])
+	cons8 = And([Implies(j<num_itv2,\
+						Or([itvs2[j][0] == or_itvs[i][0] for i in range(max_int)])==\
+							And([Or(itvs1[k][0]>=itvs2[j][0], itvs2[j][0]>itvs1[k][1]) for k in range(max_int)]))\
+							 for j in range(max_int)])
 
-		cons9 = And([Implies(j<num_itv2,\
-							Or([itvs2[j][1] == or_itvs[i][1] for i in range(max_int)])==\
-								And([Or(itvs1[k][0]>itvs2[j][1], itvs2[j][1]>=itvs1[k][1]) for k in range(max_int)]))\
-								 for j in range(max_int)])
-		
+	cons9 = And([Implies(j<num_itv2,\
+						Or([itvs2[j][1] == or_itvs[i][1] for i in range(max_int)])==\
+							And([Or(itvs1[k][0]>itvs2[j][1], itvs2[j][1]>=itvs1[k][1]) for k in range(max_int)]))\
+							 for j in range(max_int)])
+	
 
-		#og# cons6 = And([And([Implies(And(j+1<=num_itv1, or_itvs[i][0] == itvs1[j][0]),\
-		#						And([Implies(k+1<=num_itv2, Not(And(itvs2[k][0]<itvs1[j][0], itvs1[j][0]<=itvs2[k][1]))) for k in range(len(itvs2))])) \
-		#						for j in range(len(itvs1))]) \
-		#
-		'''						for i in range(len(itvs1))])
-		cons7 = And([Implies(And([i+1<=num_itv1]+[itvs1[i][0] != or_itvs[j][0] for j in range(len(or_itvs))]),
-											Or([And(itvs2[k][0]<itvs1[i][0], itvs1[i][0]<=itvs2[k][1]) for k in range(len(itvs1))])) for i in range(len(itvs2))])
-		
-		cons8 = And([And([Implies(And(j+1<=num_itv1, or_itvs[i][1] == itvs1[j][1]),\
-								And([Implies(k+1<=num_itv2, Not(And(itvs2[k][0]<=itvs1[j][1], itvs1[j][1]<itvs2[k][1]))) for k in range(len(itvs2))])) \
-								for j in range(len(itvs1))]) \
-								for i in range(len(itvs1))])
-		cons9 = And([Implies(And([i+1<=num_itv1]+[itvs1[i][1] != or_itvs[j][1] for j in range(len(or_itvs))]),
-											Or([And(itvs2[k][0]<=itvs1[i][1], itvs1[i][1]<itvs2[k][1]) for k in range(len(itvs1))])) for i in range(len(itvs2))])
+	#og# cons6 = And([And([Implies(And(j+1<=num_itv1, or_itvs[i][0] == itvs1[j][0]),\
+	#						And([Implies(k+1<=num_itv2, Not(And(itvs2[k][0]<itvs1[j][0], itvs1[j][0]<=itvs2[k][1]))) for k in range(len(itvs2))])) \
+	#						for j in range(len(itvs1))]) \
+	#
+	'''						for i in range(len(itvs1))])
+	cons7 = And([Implies(And([i+1<=num_itv1]+[itvs1[i][0] != or_itvs[j][0] for j in range(len(or_itvs))]),
+										Or([And(itvs2[k][0]<itvs1[i][0], itvs1[i][0]<=itvs2[k][1]) for k in range(len(itvs1))])) for i in range(len(itvs2))])
+	
+	cons8 = And([And([Implies(And(j+1<=num_itv1, or_itvs[i][1] == itvs1[j][1]),\
+							And([Implies(k+1<=num_itv2, Not(And(itvs2[k][0]<=itvs1[j][1], itvs1[j][1]<itvs2[k][1]))) for k in range(len(itvs2))])) \
+							for j in range(len(itvs1))]) \
+							for i in range(len(itvs1))])
+	cons9 = And([Implies(And([i+1<=num_itv1]+[itvs1[i][1] != or_itvs[j][1] for j in range(len(or_itvs))]),
+										Or([And(itvs2[k][0]<=itvs1[i][1], itvs1[i][1]<itvs2[k][1]) for k in range(len(itvs1))])) for i in range(len(itvs2))])
 
-		cons10 = And([And([Implies(And(j+1<=num_itv2, or_itvs[i][0] == itvs2[j][0]),\
-								And([Implies(k+1<=num_itv1, Not(And(itvs1[k][0]<itvs2[j][0], itvs2[j][0]<=itvs1[k][1]))) for k in range(len(itvs2))])) \
-								for j in range(len(itvs2))]) \
-								for i in range(len(itvs2))])
-		cons11 = And([Implies(And([i+1<=num_itv2]+[itvs2[i][0] != or_itvs[j][0] for j in range(len(or_itvs))]),
-											Or([And(itvs1[k][0]<itvs2[i][0], itvs2[i][0]<=itvs1[k][1]) for k in range(len(itvs1))])) for i in range(len(itvs2))])
+	cons10 = And([And([Implies(And(j+1<=num_itv2, or_itvs[i][0] == itvs2[j][0]),\
+							And([Implies(k+1<=num_itv1, Not(And(itvs1[k][0]<itvs2[j][0], itvs2[j][0]<=itvs1[k][1]))) for k in range(len(itvs2))])) \
+							for j in range(len(itvs2))]) \
+							for i in range(len(itvs2))])
+	cons11 = And([Implies(And([i+1<=num_itv2]+[itvs2[i][0] != or_itvs[j][0] for j in range(len(or_itvs))]),
+										Or([And(itvs1[k][0]<itvs2[i][0], itvs2[i][0]<=itvs1[k][1]) for k in range(len(itvs1))])) for i in range(len(itvs2))])
 
 
-		cons12 = And([And([Implies(And(j+1<=num_itv2, or_itvs[i][1] == itvs2[j][1]),\
-								And([Implies(k+1<=num_itv1, Not(And(itvs1[k][0]<=itvs2[j][1], itvs2[j][1]<itvs1[k][1]))) for k in range(len(itvs2))])) \
-								for j in range(len(itvs2))]) \
-								for i in range(len(itvs2))])
-		
-		cons13 = And([Implies(And([i+1<=num_itv2]+[itvs2[i][1] != or_itvs[j][1] for j in range(len(or_itvs))]),
-											Or([And(itvs1[k][0]<=itvs2[i][1], itvs2[i][1]<itvs1[k][1]) for k in range(len(itvs1))])) for i in range(len(itvs2))])
-		'''
-		cons = And([cons2, cons4, cons5, cons6, cons7, cons8, cons9])
+	cons12 = And([And([Implies(And(j+1<=num_itv2, or_itvs[i][1] == itvs2[j][1]),\
+							And([Implies(k+1<=num_itv1, Not(And(itvs1[k][0]<=itvs2[j][1], itvs2[j][1]<itvs1[k][1]))) for k in range(len(itvs2))])) \
+							for j in range(len(itvs2))]) \
+							for i in range(len(itvs2))])
+	
+	cons13 = And([Implies(And([i+1<=num_itv2]+[itvs2[i][1] != or_itvs[j][1] for j in range(len(or_itvs))]),
+										Or([And(itvs1[k][0]<=itvs2[i][1], itvs2[i][1]<itvs1[k][1]) for k in range(len(itvs1))])) for i in range(len(itvs2))])
+	'''
+	cons = And([cons2, cons4, cons5, cons6, cons7, cons8, cons9])
 
-		return cons
+	return cons
 	
 
 def minus_itv(itvs, minus_itvs, a, b, num_itv, new_num_itv, end_time):
@@ -130,7 +130,7 @@ def union_itv(itvs, F_itvs, num_itv, new_num_itv, end_time):
 
 
 	#ensuring interval bounds are from itvs
-	cons1 = And(1<=new_num_itv, new_num_itv<=num_itv+1)
+	cons1 = new_num_itv<=num_itv+1
 	cons2 = And([Implies(i<= new_num_itv-1, Or([F_itvs[i][0]==itvs[j][0] for j in range(len(itvs))])) for i in range(len(itvs))])
 	cons3 = And([Implies(i<= new_num_itv-1, Or([F_itvs[i][1]==itvs[j][1] for j in range(len(itvs))])) for i in range(len(itvs))])
 	cons4 = And([Implies(i <= new_num_itv-1, F_itvs[i][0] < F_itvs[i][1]) for i in range(len(itvs))])
@@ -381,7 +381,7 @@ class SMTEncoding:
 
 
 		#ensuring interval bounds are from itvs
-		cons1 = And(1<=new_num_itv, new_num_itv<=num_itv+1)
+		cons1 = new_num_itv<=num_itv+1
 		cons2 = And([Implies(i<= new_num_itv-1, Or([F_itvs[i][0]==itvs[j][0] for j in range(len(itvs))])) for i in range(len(itvs))])
 		cons3 = And([Implies(i<= new_num_itv-1, Or([F_itvs[i][1]==itvs[j][1] for j in range(len(itvs))])) for i in range(len(itvs))])
 		cons4 = And([Implies(i <= new_num_itv-1, F_itvs[i][0] < F_itvs[i][1]) for i in range(len(itvs))])
@@ -447,7 +447,8 @@ class SMTEncoding:
 		#actual_itv1 = [(0,6),(11,12),(16,17),(20,20)]
 		#actual_itv1 = [(0,6),(8,12),(16,17),(20,20)]
 		#actual_itv1 = [(0, 1),(3, 5),(5, 5),(5, 5),(5, 5),(5, 5),(5, 5),(5, 5),(5, 5),(5, 5),(5, 5),(5, 5)]
-		actual_itv1 = [(2, 7),(8, 19),(20, 20),(20, 20)]
+		#actual_itv1 = [(2, 7),(8, 19),(20, 20),(20, 20)]
+		actual_itv1 = [(5,5),(5,5),(5,5),(5,5),(5,5),(5,5),(5,5),(5,5)]
 		actual_itv2 = [(1,4),(11,15),(18,20),(20,20)]
 
 		#[(13,14), (15.1,15.6), (7,15), (16,20)]
@@ -465,12 +466,12 @@ class SMTEncoding:
 		new_num_itv = Int('new_num_itv')
 
 		
-		self.solver.add(And([And(itv1[i][0]==actual_itv1[i][0], itv1[i][1]==actual_itv1[i][1]) for i in range(len(actual_itv1))]+[num_itv1==2]))
-		self.solver.add(And([And(itv2[i][0]==actual_itv2[i][0], itv2[i][1]==actual_itv2[i][1]) for i in range(len(actual_itv1))]+[num_itv2==3]))
+		self.solver.add(And([And(itv1[i][0]==actual_itv1[i][0], itv1[i][1]==actual_itv1[i][1]) for i in range(len(actual_itv1))]+[num_itv1==0, a==3, b==4]))
+		self.solver.add(And([And(itv2[i][0]==actual_itv2[i][0], itv2[i][1]==actual_itv2[i][1]) for i in range(len(actual_itv2))]+[num_itv2==3]))
 
-		self.solver.add(self.ensureProperIntervals(itv_new, 20))
-		self.solver.add(self.or_itv(itv1, itv2, itv_new, num_itv1, num_itv2, new_num_itv, 20))
-		#self.solver.add(self.F_itv(itv1, itv_new, a, b, num_itv1, new_num_itv, 20))
+		self.solver.add(self.ensureProperIntervals(itv_new, 5))
+		#self.solver.add(self.or_itv(itv1, itv2, itv_new, num_itv1, num_itv2, new_num_itv, 20))
+		self.solver.add(self.F_itv(itv1, itv_new, a, b, num_itv1, new_num_itv, 5))
 		#self.solver.add(self.and_itv(itv1, itv2, itv_new, num_itv1, num_itv2, new_num_itv, 20))
 
 		#self.solver.add(self.not_itv(itv2, itv_new, num_itv2, new_num_itv, 20))

@@ -1,6 +1,12 @@
 from z3 import *
 from formula import STLFormula
-from merging import *
+from semantics import *
+
+
+
+
+
+
 
 class SMTEncoding:
 
@@ -9,7 +15,7 @@ class SMTEncoding:
 		#defaultOperators = ['G', 'F', '!', '&', '|', '->']
 		#unary = ['G','F', '!']	
 		#binary = ['&', '|', '->']
-		unary = ['!', 'F']
+		unary = ['F']
 		binary = []
 		defaultOperators = unary + binary
 		#unary = ['G']
@@ -62,9 +68,9 @@ class SMTEncoding:
 		
 		self.x = { (i, o) : Bool('x_%d_%s'%(i,o)) for i in range(self.formula_size) for o in self.operatorsAndPropositions}
 		
-		self.a = {i: Int('a_%d'%i) for i in range(self.formula_size)}
+		self.a = {i: Real('a_%d'%i) for i in range(self.formula_size)}
 	
-		self.b = {i: Int('b_%d'%i) for i in range(self.formula_size)}
+		self.b = {i: Real('b_%d'%i) for i in range(self.formula_size)}
 
 
 		self.l = {(parentOperator, childOperator) : Bool('l_%d_%d'%(parentOperator,childOperator))\
@@ -94,6 +100,7 @@ class SMTEncoding:
 		self.exactlyOneOperator()	   
 		self.firstOperatorProposition()
 		self.noDanglingPropositions()
+		self.ensureProperIntervals()
 		self.temporalBoundsRelation() #<---
 		
 		# Semantic Constraints
@@ -108,10 +115,30 @@ class SMTEncoding:
 		for signal_id in range(len(self.sample.positive), len(self.sample.positive+self.sample.negative)):
 			self.solver.assert_and_track(self.itvs[(self.formula_size - 1, signal_id)][0][0]>0, \
 										"Negative signal %d should not hold"%signal_id)
-				
 		
-										   
-			  
+# (0,2)(2.5,4)
+# (1,3)(5,6)
+
+	def ensureProperIntervals(self):
+
+		for i in range(1, self.formula_size):
+			for signal_id, signal in enumerate(self.sample.positive+self.sample.negative):
+				
+				for t in range(self.max_intervals-1):
+					
+					self.solver.assert_and_track(self.itvs[(i, signal_id)][t][0]<=self.itvs[(i, signal_id)][t][1],
+									'Proper intervals for formula size %d on signal %d at time %d'%(i,signal_id,t))
+
+					self.solver.assert_and_track(Implies(t>=self.num_itvs[(i,signal_id)], 
+												And(self.itvs[(i, signal_id)][t][0]==self.end_time,\
+													self.itvs[(i, signal_id)][t][1]==self.end_time)),
+										'End time intervals for formula size %d on signal %d at time %d'%(i,signal_id,t))
+				
+					if t<self.max_intervals-1:					
+						self.solver.assert_and_track(self.itvs[(i, signal_id)][t][1]<=self.itvs[(i, signal_id)][t+1][0],
+										'Proper next intervals for formula size %d on signal %d at time %d'%(i,signal_id,t))
+						   
+					  
 	def temporalBoundsRelation(self):
 
 		for i in range(self.formula_size):
@@ -166,13 +193,14 @@ class SMTEncoding:
 		for p in self.listOfPropositions:
 			for i in range(self.formula_size):
 				for signal_id, signal in enumerate(self.sample.positive + self.sample.negative):
+					
 					self.solver.assert_and_track(Implies(self.x[(i, p)],\
 															And([And([self.itvs[(i, signal_id)][t][k] == self.prop_itvs[(p,signal_id)][t][k]  \
 															 for t in range(len(self.prop_itvs[(p,signal_id)])) for k in range(2)]), And([self.itvs[(i, signal_id)][t][k] == self.end_time\
 															 for t in range(len(self.prop_itvs[(p,signal_id)]),self.max_intervals) for k in range(2)]),\
 															 self.num_itvs[(i,signal_id)] == len(self.prop_itvs[(p,signal_id)])])),\
 															 'Intervals for propositional variable node_'+ str(i)+ 'var _'+str(p)+'_signal_'+ str(signal_id))
-
+					
 
 
 		
