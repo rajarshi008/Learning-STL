@@ -111,12 +111,13 @@ class learnMTL:
 
 	def search_only_size(self):
 		
-		for formula_size in range(1,3): 
+		for formula_size in range(2,3): 
 			#for formula_size in range(1,self.size_bound+1): 
 				print('---------------Searching for formula size %d---------------'%formula_size)
 				encoding = SMTEncoding(self.signal_sample, formula_size, self.props, self.prop_itvs, self.end_time)
 				encoding.encodeFormula()
 				
+				print('Constraint creation done, now solving')
 				solverRes = encoding.solver.check()
 				#t_solve=time.time()-t_solve
 
@@ -129,7 +130,17 @@ class learnMTL:
 				print('The solver found', solverRes)
 
 				if solverRes == sat:
-					solverModel = encoding.solver.model()
+					solverModel = encoding.solver.model()	
+					for i in range(formula_size):
+						print('Node', i,':',[k[1] for k in encoding.x if k[0] == i and solverModel[encoding.x[k]] == True][0]) 
+						for signal_id, signal in enumerate(self.signal_sample.positive+self.signal_sample.negative):
+							print('Signal', signal_id)
+							for t in range(encoding.max_intervals):
+								print(t, (solverModel[encoding.itvs[(i,signal_id)][t][0]],solverModel[encoding.itvs[(i,signal_id)][t][1]]))
+
+					#for i in range(encoding.max_intervals):
+					#	print(i, (solverModel[encoding.itv_new[i][0]],solverModel[itv_new[i][1]]))
+
 					#print(solverModel.eval(self.x[2,'G']))
 					'''
 					for t in solverModel.decls():
@@ -139,7 +150,7 @@ class learnMTL:
 					formula = encoding.reconstructWholeFormula(solverModel)
 					#formula_list.append(formula)
 					found_formula_size = formula.treeSize()
-					print('Found formula %s of size %d'%(formula.prettyPrint(), formula.size))
+					print('Found formula %s of size %d'%(formula.prettyPrint(), formula.treeSize()))
 					break
 
 		#for formula in formula_list:

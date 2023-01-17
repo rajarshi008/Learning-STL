@@ -1,6 +1,6 @@
 from z3 import *
 from formula import STLFormula
-from merging import not_itv
+from merging import *
 
 class SMTEncoding:
 
@@ -9,9 +9,9 @@ class SMTEncoding:
 		#defaultOperators = ['G', 'F', '!', '&', '|', '->']
 		#unary = ['G','F', '!']	
 		#binary = ['&', '|', '->']
-		defaultOperators = ['!']
-		unary = ['!']
+		unary = ['!', 'F']
 		binary = []
+		defaultOperators = unary + binary
 		#unary = ['G']
 		#binary = ['&']
 		#defaultOperators = ['G', 'F']
@@ -28,7 +28,6 @@ class SMTEncoding:
 		
 		if 'prop' in self.listOfOperators:
 			self.listOfOperators.remove('prop')
-			
 		'''
 		self.unaryOperators = unary
 		self.binaryOperators = binary
@@ -63,9 +62,9 @@ class SMTEncoding:
 		
 		self.x = { (i, o) : Bool('x_%d_%s'%(i,o)) for i in range(self.formula_size) for o in self.operatorsAndPropositions}
 		
-		self.a = {i: Real('a_%d'%i) for i in range(self.formula_size)}
+		self.a = {i: Int('a_%d'%i) for i in range(self.formula_size)}
 	
-		self.b = {i: Real('b_%d'%i) for i in range(self.formula_size)}
+		self.b = {i: Int('b_%d'%i) for i in range(self.formula_size)}
 
 
 		self.l = {(parentOperator, childOperator) : Bool('l_%d_%d'%(parentOperator,childOperator))\
@@ -99,7 +98,7 @@ class SMTEncoding:
 		
 		# Semantic Constraints
 		self.propositionsSemantics()
-		#self.operatorsSemantics() #<---
+		self.operatorsSemantics() #<---
 
 		#self.futureReachBound() #<---
 		for signal_id in range(len(self.sample.positive)):
@@ -108,7 +107,7 @@ class SMTEncoding:
 					
 		for signal_id in range(len(self.sample.positive), len(self.sample.positive+self.sample.negative)):
 			self.solver.assert_and_track(self.itvs[(self.formula_size - 1, signal_id)][0][0]>0, \
-										"Negative signal %d should hold"%signal_id)
+										"Negative signal %d should not hold"%signal_id)
 				
 		
 										   
@@ -171,8 +170,8 @@ class SMTEncoding:
 															And([And([self.itvs[(i, signal_id)][t][k] == self.prop_itvs[(p,signal_id)][t][k]  \
 															 for t in range(len(self.prop_itvs[(p,signal_id)])) for k in range(2)]), And([self.itvs[(i, signal_id)][t][k] == self.end_time\
 															 for t in range(len(self.prop_itvs[(p,signal_id)]),self.max_intervals) for k in range(2)]),\
-															 self.num_itvs[(i,signal_id)]== len(self.prop_itvs[(p,signal_id)])])),\
-															  "Intervals for propositional variable node_"+ str(i)+ 'var _'+str(p)+'_signal_'+ str(signal_id))
+															 self.num_itvs[(i,signal_id)] == len(self.prop_itvs[(p,signal_id)])])),\
+															 'Intervals for propositional variable node_'+ str(i)+ 'var _'+str(p)+'_signal_'+ str(signal_id))
 
 
 
@@ -305,36 +304,48 @@ class SMTEncoding:
 															   Implies(\
 																		 self.l[(i,onlyArg)],\
 																		 not_itv(self.itvs[(onlyArg,signal_id)], \
-																		 	self.itvs[(i,signal_id)], self.num_itv[(onlyArg,signal_id)],\
-																		 	self.num_itv[(i, signal_id)], self.end_time)
+																		 	self.itvs[(i,signal_id)], self.num_itvs[(onlyArg,signal_id)],\
+																		 	self.num_itvs[(i, signal_id)], self.end_time)
 																		  )\
 															   for onlyArg in range(i)\
 															   ])\
 														   ),\
-												   'semantics of negation for trace %d and node %d' % (signal_id, i)\
-												   )
+												   'semantics of negation for signal %d and node %d' % (signal_id, i))
 
-
-					'''
+				
+				if '|' in self.listOfOperators:
 					#disjunction
+					print(signal_id, i)
 					self.solver.assert_and_track(Implies(self.x[(i, '|')],\
 															And([ Implies(\
 																		   And(\
 																			   [self.l[i, leftArg], self.r[i, rightArg]]\
 																			   ),\
-																		   And(\
-																			   [ self.y[(i, traceIdx, tp)]\
-																				==\
-																				Or(\
-																				   [ self.y[(leftArg, traceIdx, tp)],\
-																					self.y[(rightArg, traceIdx, tp)]]\
-																				   )\
-																				 for tp in range(T)]\
-																			   )\
+																		   	or_itv(self.itvs[(leftArg,signal_id)], self.itvs[(rightArg,signal_id)],\
+																		   			 self.itvs[(i,signal_id)], self.num_itvs[(leftArg,signal_id)],\
+																		   			 self.num_itvs[(rightArg,signal_id)], self.num_itvs[(i,signal_id)],\
+																		   			 self.end_time)
 																		   )\
 																		  for leftArg in range(i) for rightArg in range(i) ])),\
-															 'semantics of disjunction for trace %d and node %d'%(traceIdx, i))
-				
+															 'semantics of disjunction for signal %d and node %d'%(signal_id, i))
+
+				if 'F' in self.listOfOperators:				  
+					#finally				
+					self.solver.assert_and_track(Implies(self.x[(i, 'F')],\
+														   And([\
+															   Implies(\
+																		 self.l[(i,onlyArg)],\
+																		 F_itv(self.itvs[(onlyArg, signal_id)], self.itvs[(i, signal_id)],\
+																		 		 self.a[i], self.b[i], i, signal_id, self.num_itvs[(onlyArg, signal_id)],\
+																		 		 self.num_itvs[(i,signal_id)], self.end_time)
+																		 )\
+															   for onlyArg in range(i)\
+															   ])\
+														   ),\
+												   'semantics of finally operator for signal %d and node %d' % (signal_id, i)\
+				  									)
+
+				'''
 				if '&' in self.listOfOperators:
 					#conjunction
 					self.solver.assert_and_track(Implies(self.x[(i, '&')],\
@@ -424,9 +435,6 @@ class SMTEncoding:
 		
 	def reconstructFormula(self, rowId, model):
 		
-
-		
-
 
 		def getValue(row, vars):
 			tt = [k[1] for k in vars if k[0] == row and model[vars[k]] == True]
