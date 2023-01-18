@@ -112,7 +112,7 @@ class learnMTL:
 
 	def search_only_size(self):
 		
-		for formula_size in range(2,3): 
+		for formula_size in range(2,5):
 			#for formula_size in range(1,self.size_bound+1): 
 				print('---------------Searching for formula size %d---------------'%formula_size)
 				encoding = SMTEncoding(self.signal_sample, formula_size, self.props, self.prop_itvs, self.end_time)
@@ -138,7 +138,7 @@ class learnMTL:
 							print('Signal', signal_id)
 							for t in range(encoding.max_intervals):
 								print(t, (solverModel[encoding.itvs[(i,signal_id)][t][0]],solverModel[encoding.itvs[(i,signal_id)][t][1]]))
-
+							print(solverModel[encoding.num_itvs[(i,signal_id)]])
 					#for i in range(encoding.max_intervals):
 					#	print(i, (solverModel[encoding.itv_new[i][0]],solverModel[itv_new[i][1]]))
 

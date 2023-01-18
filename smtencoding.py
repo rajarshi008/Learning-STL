@@ -16,7 +16,7 @@ class SMTEncoding:
 		#unary = ['G','F', '!']	
 		#binary = ['&', '|', '->']
 		unary = ['F']
-		binary = []
+		binary = ['&']
 		defaultOperators = unary + binary
 		#unary = ['G']
 		#binary = ['&']
@@ -46,7 +46,8 @@ class SMTEncoding:
 		self.sample = sample
 		self.listOfPropositions = prop
 		self.num_sampled_points = len(self.sample.positive[0].sequence)
-		self.max_intervals = self.formula_size*self.num_sampled_points
+		#self.max_intervals = self.formula_size*self.num_sampled_points
+		self.max_intervals = 3
 		self.prop_itvs = prop_itvs
 		self.end_time = end_time
 
@@ -124,7 +125,9 @@ class SMTEncoding:
 		for i in range(1, self.formula_size):
 			for signal_id, signal in enumerate(self.sample.positive+self.sample.negative):
 				
-				for t in range(self.max_intervals-1):
+				self.solver.assert_and_track(And(0<=self.num_itvs[(i,signal_id)], self.num_itvs[(i,signal_id)]<=self.max_intervals),\
+											"Number of intervals well defined for formula size %d on signal %d"%(i,signal_id))
+				for t in range(self.max_intervals):
 					
 					self.solver.assert_and_track(self.itvs[(i, signal_id)][t][0]<=self.itvs[(i, signal_id)][t][1],
 									'Proper intervals for formula size %d on signal %d at time %d'%(i,signal_id,t))
@@ -145,7 +148,7 @@ class SMTEncoding:
 
 			if 'G' in self.listOfOperators:
 				#globally				
-				self.solver.assert_and_track(Implies(self.x[(i, 'G')], (self.a[i] <= self.b[i])),\
+				self.solver.assert_and_track(Implies(self.x[(i, 'G')], And(self.a[i]>=0,self.a[i] <= self.b[i])),\
 											'temporal bounds of globally operator for node %d'%i)
 
 				#self.solver.assert_and_track(Implies(self.x[(i, 'G')], Or([self.a[i] == self.utp[tp] for tp in range(len(self.utp))])),\
@@ -158,7 +161,7 @@ class SMTEncoding:
  
 			if 'F' in self.listOfOperators:				  
 				#finally				
-				self.solver.assert_and_track(Implies(self.x[(i, 'F')], (self.a[i] <= self.b[i])),\
+				self.solver.assert_and_track(Implies(self.x[(i, 'F')], And(And(self.a[i]>=0,self.a[i] <= self.b[i]))),\
 											   
 											   'temporal bounds of finally operator for node %d'%i)
 				
@@ -373,27 +376,23 @@ class SMTEncoding:
 												   'semantics of finally operator for signal %d and node %d' % (signal_id, i)\
 				  									)
 
-				'''
+				
 				if '&' in self.listOfOperators:
 					#conjunction
+					print(i,signal_id)
 					self.solver.assert_and_track(Implies(self.x[(i, '&')],\
 															And([ Implies(\
 																		   And(\
 																			   [self.l[i, leftArg], self.r[i, rightArg]]\
 																			   ),\
-																		   And(\
-																			   [ self.y[(i, traceIdx, tp)]\
-																				==\
-																				And(\
-																				   [ self.y[(leftArg, traceIdx, tp)],\
-																					self.y[(rightArg, traceIdx, tp)]]\
-																				   )\
-																				 for tp in range(T)]\
-																			   )\
+																		   	and_itv(self.itvs[(leftArg,signal_id)], self.itvs[(rightArg,signal_id)],\
+																		   			 self.itvs[(i,signal_id)], i, signal_id,\
+																		   			 self.num_itvs[(leftArg,signal_id)],self.num_itvs[(rightArg,signal_id)],\
+																		   			  self.num_itvs[(i,signal_id)],self.end_time)\
 																		   )\
 																		  for leftArg in range(i) for rightArg in range(i) ])),\
-															 'semantics of conjunction for trace %d and node %d'%(traceIdx, i))
-					 
+															 'semantics of conjunction for signal %d and node %d'%(signal_id, i))
+				'''	 
 				if '->' in self.listOfOperators:
 					   
 					#implication
