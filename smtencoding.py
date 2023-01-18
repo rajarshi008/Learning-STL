@@ -15,8 +15,8 @@ class SMTEncoding:
 		#defaultOperators = ['G', 'F', '!', '&', '|', '->']
 		#unary = ['G','F', '!']	
 		#binary = ['&', '|', '->']
-		unary = ['F']
-		binary = ['&']
+		unary = ['F', '!']
+		binary = ['&', '|']
 		defaultOperators = unary + binary
 		#unary = ['G']
 		#binary = ['&']
@@ -162,7 +162,6 @@ class SMTEncoding:
 			if 'F' in self.listOfOperators:				  
 				#finally				
 				self.solver.assert_and_track(Implies(self.x[(i, 'F')], And(And(self.a[i]>=0,self.a[i] <= self.b[i]))),\
-											   
 											   'temporal bounds of finally operator for node %d'%i)
 				
 				#self.solver.assert_and_track(Implies(self.x[(i, 'F')], Or([self.a[i] == self.utp[tp] for tp in range(len(self.utp))])),\
@@ -353,9 +352,8 @@ class SMTEncoding:
 																			   [self.l[i, leftArg], self.r[i, rightArg]]\
 																			   ),\
 																		   	or_itv(self.itvs[(leftArg,signal_id)], self.itvs[(rightArg,signal_id)],\
-																		   			 self.itvs[(i,signal_id)], self.num_itvs[(leftArg,signal_id)],\
-																		   			 self.num_itvs[(rightArg,signal_id)], self.num_itvs[(i,signal_id)],\
-																		   			 self.end_time)
+																		   			 self.itvs[(i,signal_id)], i, signal_id,self.num_itvs[(leftArg,signal_id)],\
+																		   			 self.num_itvs[(rightArg,signal_id)], self.num_itvs[(i,signal_id)],self.end_time)
 																		   )\
 																		  for leftArg in range(i) for rightArg in range(i) ])),\
 															 'semantics of disjunction for signal %d and node %d'%(signal_id, i))

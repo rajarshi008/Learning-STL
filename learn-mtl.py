@@ -152,7 +152,7 @@ class learnMTL:
 					#formula_list.append(formula)
 					found_formula_size = formula.treeSize()
 					print('Found formula %s of size %d'%(formula.prettyPrint(), formula.treeSize()))
-					break
+					#break
 
 		#for formula in formula_list:
 		#	print(formula.prettyPrint())
